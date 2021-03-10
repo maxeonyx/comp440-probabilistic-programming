@@ -3,4 +3,4 @@
 
 This repo contains code demos, resources and assignments that I have created for this course.
 
-
+The textbook we are following is located [here](./introduction-to-ppl.pdf)
