@@ -1,6 +1,6 @@
 mod ast;
 
-use std::{borrow::Borrow, collections::BinaryHeap, error::Error, ops::Deref};
+use std::{error::Error, rc::Rc};
 
 use ast::{Expression, Ident, Let};
 use lalrpop_util::lalrpop_mod;
@@ -8,7 +8,7 @@ use lalrpop_util::lalrpop_mod;
 lalrpop_mod!(pub grammar);
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let text = include_str!("../examples/addition.ppl");
+    let text = include_str!("../examples/normal.ppl");
     let parser = grammar::ProgramParser::new();
     let ast = parser.parse(text)?;
     println!("{:?}", ast);
@@ -20,19 +20,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn run(program: &ast::Program) {}
-
-#[derive(Clone, Debug)]
-pub enum Distribution {
-    Normal(f64, f64),
+#[derive(Clone)]
+pub struct Distribution {
+    sample: Rc<dyn Fn() -> f64>,
+    name: String,
 }
 
-impl Distribution {
-    fn sample(&self, params: Vec<f64>) -> f64 {
-        use Distribution::*;
-        match self {
-            Normal(mu, sigma) => 0.0f64,
-        }
+impl std::fmt::Debug for Distribution {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Distribution")
+            .field("name", &self.name)
+            .finish()
     }
 }
 
@@ -41,11 +39,11 @@ pub enum Value {
     Float(f64),
     Integer(i64),
     Boolean(bool),
-    Distribution(Box<Distribution>),
+    Distribution(Distribution),
     Vector(Vec<Value>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RuntimeError {
     message: String,
 }
@@ -127,20 +125,81 @@ impl Interpreter {
                 ))
             }
             Expression::Integer(val) => Ok(Value::Integer(*val)),
-            _ => unimplemented!(),
+            Expression::Float(val) => Ok(Value::Float(*val)),
+            Expression::Sample(expr) => {
+                let val = self.eval(expr)?;
+                match val {
+                    Value::Distribution(d) => Ok(Value::Float((d.sample)())),
+                    _ => Err(RuntimeError::new(
+                        "Sample must only be called on a Distribution value.".to_owned(),
+                    )),
+                }
+            }
+            Expression::FunctionApplication(ident, params) => {
+                if ident.0 != "normal" {
+                    return Err(RuntimeError::new(
+                        "Only supported function at the moment is `normal`.".to_owned(),
+                    ));
+                }
+                if params.len() != 2 {
+                    return Err(RuntimeError::new(
+                        "`normal` requires exactly 2 params.".to_owned(),
+                    ));
+                }
+                let vals = params
+                    .iter()
+                    .map(|param_expr| self.eval(param_expr))
+                    .collect::<Vec<_>>();
+                if vals.iter().any(|result| result.is_err()) {
+                    let result = vals.into_iter().filter(|result| result.is_err()).next();
+                    return Err(RuntimeError::new(format!(
+                        "Error when evaluating args: {:?}",
+                        result.unwrap().unwrap_err()
+                    )));
+                }
+                if vals.iter().all(|val| {
+                    if let Ok(Value::Float(_)) = val {
+                        true
+                    } else {
+                        false
+                    }
+                }) {
+                    let vals = vals
+                        .into_iter()
+                        .map(|val| match val.clone() {
+                            Ok(Value::Float(f)) => f,
+                            _ => unreachable!(),
+                        })
+                        .collect::<Vec<_>>();
+                    let name = format!("normal({:?})", vals);
+                    let distribution = Value::Distribution(Distribution {
+                        sample: Rc::new(move || {
+                            use rand::prelude::*;
+                            use rand_distr::Normal;
+                            let distr = Normal::new(vals[0], vals[1]).unwrap();
+                            let mut rng = rand::thread_rng();
+                            rng.sample::<f64, _>(distr)
+                        }),
+                        name,
+                    });
+                    return Ok(distribution);
+                }
+
+                Err(RuntimeError::new(
+                    "All params to `normal` must be floats.".to_owned(),
+                ))
+            }
+            x => Err(RuntimeError::new(format!("Unimplemented: {:?}", x))),
             /*
             Expression::Multiplication(left, right) => un
             Expression::Division(left, right) => {}
             Expression::Subtraction(left, right) => {}
             Expression::Negation(expr) => {}
-            Expression::Sample(expr) => {}
             Expression::Observe(dist, val) => {}
             Expression::If(comp, true_branch, false_branch) => {}
-            Expression::FunctionApplication(ident, params) => {}
             Expression::Vector(elements) => {}
             Expression::HashMap(pairs) => {}
             Expression::Boolean(val) => {}
-            Expression::Float(val) => {}
             */
         }
     }

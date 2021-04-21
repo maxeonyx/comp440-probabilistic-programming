@@ -11,6 +11,8 @@ build = "build.rs"
 [dependencies]
 lalrpop-util = "0.19.5"
 regex = "1"
+rand = "0.8"
+rand_distr = "0.4"
 
 [build-dependencies]
 lalrpop = "0.19.5"
