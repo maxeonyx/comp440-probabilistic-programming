@@ -1,0 +1,71 @@
+use std::str::FromStr;
+use crate::ast;
+
+grammar;
+
+pub Program: ast::Program = {
+    <definitions:(<Definition>)*> <expression:Expression> => ast::Program {
+        definitions,
+        expression,
+    },
+}
+
+Definition: ast::Definition = {
+    "(" "defn" <ident:Ident> "[" <params:(<Ident>)*> "]" <body:Expression> ")" => ast::Definition {
+        ident,
+        params,
+        body,
+    }
+}
+
+Let: ast::Let = {
+    "(" "let" "[" <bindings:((<Ident> <Expression>))*> "]" <body:Expression> ")" => ast::Let {
+        bindings,
+        body,
+    }
+}
+
+Expression: ast::Expression = {
+
+    <l:Let> => ast::Expression::Let(Box::new(l)),
+
+    "(" "+" <e1:Expression> <e2:Expression> ")" => ast::Expression::Addition(Box::new(e1), Box::new(e2)),
+    "(" "*" <e1:Expression> <e2:Expression> ")" => ast::Expression::Multiplication(Box::new(e1), Box::new(e2)),
+    "(" "/" <e1:Expression> <e2:Expression> ")" => ast::Expression::Division(Box::new(e1), Box::new(e2)),
+    "(" "-" <e1:Expression> <e2:Expression> ")" => ast::Expression::Subtraction(Box::new(e1), Box::new(e2)),
+    
+    "(" "-" <e1:Expression> ")" => ast::Expression::Negation(Box::new(e1)),
+
+    "(" "if" <e1:Expression> <e2:Expression> <e3:Expression> ")" => ast::Expression::If(Box::new(e1), Box::new(e2), Box::new(e3)),
+
+
+    "(" "observe" <e1:Expression> <e2:Expression> ")" => ast::Expression::Observe(Box::new(e1), Box::new(e2)),
+    "(" "sample" <e1:Expression> ")" => ast::Expression::Sample(Box::new(e1)),
+
+    "(" "vector" <elements:Expression*> ")" => ast::Expression::Vector(elements),
+    "(" "hash-map" <pairs:(<Expression> <Expression>)*> ")" => ast::Expression::HashMap(pairs),
+
+
+    FunctionApplication,
+
+    "true" => ast::Expression::Boolean(true),
+    "false" => ast::Expression::Boolean(false),
+
+    <v:Ident> => ast::Expression::Variable(v),
+
+    <f:Float> => ast::Expression::Float(f),
+    <i:Integer> => ast::Expression::Integer(i),
+}
+
+// Function or built-in. Name resolved at runtime.
+FunctionApplication: ast::Expression = {
+    "(" <ident:Ident> <params:(<Expression>)*> ")" => ast::Expression::FunctionApplication(ident, params),
+};
+
+Ident: ast::Ident = {
+    <s:r"[a-zA-Z][a-zA-Z0-9_]*"> => ast::Ident(s.to_owned()),
+}
+
+Float: f64 = <s:r"[0-9]*([0-9]\.|\.[0-9])[0-9]*"> => f64::from_str(s).unwrap();
+
+Integer: i64 = <s:r"[0-9]+"> => i64::from_str(s).unwrap();
