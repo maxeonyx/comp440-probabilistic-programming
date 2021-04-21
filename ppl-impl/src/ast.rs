@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub struct Program {
     pub definitions: Vec<Definition>,
@@ -18,13 +17,13 @@ pub struct Definition {
 #[derive(Debug)]
 pub struct Let {
     pub bindings: Vec<(Ident, Expression)>,
-    pub body: Expression,
+    pub body: Box<Expression>,
 }
 
 #[derive(Debug)]
 pub enum Expression {
     Variable(Ident),
-    Let(Box<Let>),
+    Let(Let),
     Addition(Box<Expression>, Box<Expression>),
     Multiplication(Box<Expression>, Box<Expression>),
     Division(Box<Expression>, Box<Expression>),

@@ -21,13 +21,13 @@ Definition: ast::Definition = {
 Let: ast::Let = {
     "(" "let" "[" <bindings:((<Ident> <Expression>))*> "]" <body:Expression> ")" => ast::Let {
         bindings,
-        body,
+        body: Box::new(body),
     }
 }
 
 Expression: ast::Expression = {
 
-    <l:Let> => ast::Expression::Let(Box::new(l)),
+    <l:Let> => ast::Expression::Let(l),
 
     "(" "+" <e1:Expression> <e2:Expression> ")" => ast::Expression::Addition(Box::new(e1), Box::new(e2)),
     "(" "*" <e1:Expression> <e2:Expression> ")" => ast::Expression::Multiplication(Box::new(e1), Box::new(e2)),
