@@ -1,23 +1,49 @@
 mod ast;
 
-use std::{error::Error, rc::Rc};
+use std::{rc::Rc};
 
 use ast::{Expression, Ident, Let};
 use lalrpop_util::lalrpop_mod;
 
 lalrpop_mod!(pub grammar);
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let text = include_str!("../examples/normal.ppl");
+macro_rules! err {
+    ($fstr:literal $(, $e:expr)*) => {
+        Err(RuntimeError::new(format!($fstr, $($e,)*)))
+    };
+}
+
+fn main() {
+    let mut args = std::env::args();
+    let _executable_name = args.next();
+    let filename = match args.next() {
+        Some(s) => s,
+        None => {
+            eprintln!("Must provide a filename argument.");
+            return;
+        }
+    };
+    let text = match std::fs::read_to_string(&filename) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error reading \"{}\": {}", filename, e);
+            return;
+        }
+    };
+
     let parser = grammar::ProgramParser::new();
-    let ast = parser.parse(text)?;
+    let ast = match parser.parse(&text) {
+        Ok(ast) => ast,
+        Err(e) => {
+            eprintln!("Error parsing: {}", e);
+            return;
+        }
+    };
     println!("{:?}", ast);
 
     let val = Interpreter::new().eval(&ast.expression);
 
     println!("{:?}", val);
-
-    Ok(())
 }
 
 #[derive(Clone)]
@@ -110,19 +136,34 @@ impl Interpreter {
                 self.scope.truncate(old_scope_count);
                 val
             }
-            Expression::Addition(left, right) => {
-                let left_val = self.eval(left)?;
-                let right_val = self.eval(right)?;
-                if let (Value::Float(left), Value::Float(right)) = (&left_val, &right_val) {
-                    return Ok(Value::Float(left + right));
-                } else if let (Value::Integer(left), Value::Integer(right)) =
-                    (&left_val, &right_val)
-                {
-                    return Ok(Value::Integer(left + right));
+            Expression::Addition(elements) => {
+                if elements.len() < 2 {
+                    return err!("Multiply must have at least 2 arguments.");
                 }
-                Err(RuntimeError::new(
-                    "Must use addition on floats or integers only.".to_owned(),
-                ))
+                
+                let mut sum_int = 0i64;
+                let mut sum_float = 0f64;
+                let mut all_int = true;
+                for el in elements {
+                    let val = self.eval(el)?;
+                    match val {
+                        Value::Float(v) => {
+                            sum_float += v;
+                            all_int = false;
+                        }
+                        Value::Integer(v) => {
+                            sum_float += v as f64;
+                            sum_int += v;
+                        }
+                        _ => return err!("Can't multiply types other than int and float.")
+                    }
+                }
+                
+                Ok(if all_int {
+                    Value::Integer(sum_int)
+                } else {
+                    Value::Float(sum_float)
+                })
             }
             Expression::Integer(val) => Ok(Value::Integer(*val)),
             Expression::Float(val) => Ok(Value::Float(*val)),
@@ -189,18 +230,45 @@ impl Interpreter {
                     "All params to `normal` must be floats.".to_owned(),
                 ))
             }
+
+            Expression::Multiplication(elements) => {
+                if elements.len() < 2 {
+                    return err!("Multiply must have at least 2 arguments.");
+                }
+                
+                let mut product_int = 1i64;
+                let mut product_float = 1f64;
+                let mut all_int = true;
+                for el in elements {
+                    let val = self.eval(el)?;
+                    match val {
+                        Value::Float(v) => {
+                            product_float *= v;
+                            all_int = false;
+                        }
+                        Value::Integer(v) => {
+                            product_float *= v as f64;
+                            product_int *= v;
+                        }
+                        _ => return err!("Can't multiply types other than int and float.")
+                    }
+                }
+                
+                Ok(if all_int {
+                    Value::Integer(product_int)
+                } else {
+                    Value::Float(product_float)
+                })
+            }
+            // Expression::Division(left, right) => {}
+            // Expression::Subtraction(left, right) => {}
+            // Expression::Negation(expr) => {}
+            // Expression::Observe(dist, val) => {}
+            // Expression::If(comp, true_branch, false_branch) => {}
+            // Expression::Vector(elements) => {}
+            // Expression::HashMap(pairs) => {}
+            // Expression::Boolean(val) => {}
             x => Err(RuntimeError::new(format!("Unimplemented: {:?}", x))),
-            /*
-            Expression::Multiplication(left, right) => un
-            Expression::Division(left, right) => {}
-            Expression::Subtraction(left, right) => {}
-            Expression::Negation(expr) => {}
-            Expression::Observe(dist, val) => {}
-            Expression::If(comp, true_branch, false_branch) => {}
-            Expression::Vector(elements) => {}
-            Expression::HashMap(pairs) => {}
-            Expression::Boolean(val) => {}
-            */
         }
     }
 }

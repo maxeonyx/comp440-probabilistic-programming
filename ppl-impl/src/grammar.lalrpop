@@ -29,8 +29,8 @@ Expression: ast::Expression = {
 
     <l:Let> => ast::Expression::Let(l),
 
-    "(" "+" <e1:Expression> <e2:Expression> ")" => ast::Expression::Addition(Box::new(e1), Box::new(e2)),
-    "(" "*" <e1:Expression> <e2:Expression> ")" => ast::Expression::Multiplication(Box::new(e1), Box::new(e2)),
+    "(" "+" <elements:Expression*> ")" => ast::Expression::Addition(elements),
+    "(" "*" <elements:Expression*> ")" => ast::Expression::Multiplication(elements),
     "(" "/" <e1:Expression> <e2:Expression> ")" => ast::Expression::Division(Box::new(e1), Box::new(e2)),
     "(" "-" <e1:Expression> <e2:Expression> ")" => ast::Expression::Subtraction(Box::new(e1), Box::new(e2)),
     

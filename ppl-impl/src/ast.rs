@@ -24,8 +24,8 @@ pub struct Let {
 pub enum Expression {
     Variable(Ident),
     Let(Let),
-    Addition(Box<Expression>, Box<Expression>),
-    Multiplication(Box<Expression>, Box<Expression>),
+    Addition(Vec<Expression>),
+    Multiplication(Vec<Expression>),
     Division(Box<Expression>, Box<Expression>),
     Subtraction(Box<Expression>, Box<Expression>),
     Negation(Box<Expression>),
