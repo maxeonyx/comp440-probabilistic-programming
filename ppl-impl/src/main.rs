@@ -8,10 +8,10 @@ macro_rules! err {
 
 type EvalResult = Result<Value, RuntimeError>;
 
-mod built_ins;
+mod functions;
 
 use core::fmt;
-use std::{rc::Rc};
+use std::rc::Rc;
 
 use ast::{Expression, Ident, Let};
 use lalrpop_util::lalrpop_mod;
@@ -112,7 +112,6 @@ struct Interpreter {
 }
 
 impl Interpreter {
-
     fn new() -> Self {
         Interpreter { scope: Vec::new() }
     }
@@ -168,60 +167,7 @@ impl Interpreter {
                     )),
                 }
             }
-            Expression::FunctionApplication(ident, params) => {
-                if ident.0 != "normal" {
-                    return Err(RuntimeError::new(
-                        "Only supported function at the moment is `normal`.".to_owned(),
-                    ));
-                }
-                if params.len() != 2 {
-                    return Err(RuntimeError::new(
-                        "`normal` requires exactly 2 params.".to_owned(),
-                    ));
-                }
-                let vals = params
-                    .iter()
-                    .map(|param_expr| self.eval(param_expr))
-                    .collect::<Vec<_>>();
-                if vals.iter().any(|result| result.is_err()) {
-                    let result = vals.into_iter().filter(|result| result.is_err()).next();
-                    return Err(RuntimeError::new(format!(
-                        "Error when evaluating args: {:?}",
-                        result.unwrap().unwrap_err()
-                    )));
-                }
-                if vals.iter().all(|val| {
-                    if let Ok(Value::Float(_)) = val {
-                        true
-                    } else {
-                        false
-                    }
-                }) {
-                    let vals = vals
-                        .into_iter()
-                        .map(|val| match val.clone() {
-                            Ok(Value::Float(f)) => f,
-                            _ => unreachable!(),
-                        })
-                        .collect::<Vec<_>>();
-                    let name = format!("normal({:?})", vals);
-                    let distribution = Value::Distribution(Distribution {
-                        sample: Rc::new(move || {
-                            use rand::prelude::*;
-                            use rand_distr::Normal;
-                            let distr = Normal::new(vals[0], vals[1]).unwrap();
-                            let mut rng = rand::thread_rng();
-                            rng.sample::<f64, _>(distr)
-                        }),
-                        name,
-                    });
-                    return Ok(distribution);
-                }
-
-                Err(RuntimeError::new(
-                    "All params to `normal` must be floats.".to_owned(),
-                ))
-            }
+            Expression::FunctionApplication(ident, args) => self.dispatch_function(&ident.0, &args),
             // Expression::Division(left, right) => {}
             // Expression::Subtraction(left, right) => {}
             // Expression::Negation(expr) => {}

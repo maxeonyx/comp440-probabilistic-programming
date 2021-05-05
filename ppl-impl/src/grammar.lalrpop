@@ -55,6 +55,7 @@ FunctionApplication: ast::Expression = {
 
 Ident: ast::Ident = {
     <s:r"[a-zA-Z][a-zA-Z0-9_]*"> => ast::Ident(s.to_owned()),
+    <s:r"(\+)|(-)|(\*)|(/)|(<)|(<=)|(<>)|(=)|(>=)|(>)"> => ast::Ident(s.to_owned()),
 }
 
 Float: f64 = <s:r"[0-9]*([0-9]\.|\.[0-9])[0-9]*"> => f64::from_str(s).unwrap();
