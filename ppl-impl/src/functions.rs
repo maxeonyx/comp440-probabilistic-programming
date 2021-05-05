@@ -1,6 +1,7 @@
 use core::num;
+use std::rc::Rc;
 
-use crate::{EvalResult, Interpreter, RuntimeError, Value, ValueType, ast};
+use crate::{ast, Distribution, EvalResult, Interpreter, RuntimeError, Value, ValueType};
 
 enum ComparisonType {
     Less,
@@ -12,7 +13,6 @@ enum ComparisonType {
 }
 
 fn assert_all_numeric_type(fn_name: &str, vals: &[Value]) -> Result<ValueType, RuntimeError> {
-    
     // for 0 args we return Integer, which doesn't really make sense, but we should never call this with 0 args really.
     let mut all_t = ValueType::Integer;
     for val in vals {
@@ -114,7 +114,7 @@ impl Interpreter {
         if args.len() < 2 {
             return err!("Multiply must have at least 2 arguments.");
         }
-        
+
         let mut product_int = 1i64;
         let mut product_float = 1f64;
         let mut all_int = true;
@@ -129,10 +129,10 @@ impl Interpreter {
                     product_float *= v as f64;
                     product_int *= v;
                 }
-                _ => return err!("Can't multiply types other than int and float.")
+                _ => return err!("Can't multiply types other than int and float."),
             }
         }
-        
+
         Ok(if all_int {
             Value::Integer(product_int)
         } else {
@@ -157,18 +157,10 @@ impl Interpreter {
             let vals = self.eval_all(args)?;
             assert_all_numeric_type("subtraction", &vals)?;
             Ok(match (&vals[0], &vals[1]) {
-                (Value::Integer(a), Value::Integer(b)) => {
-                    Value::Integer(a - b)
-                }
-                (Value::Float(a), Value::Integer(b)) => {
-                    Value::Float(a - *b as f64)
-                }
-                (Value::Integer(a), Value::Float(b)) => {
-                    Value::Float(*a as f64 - b)
-                }
-                (Value::Float(a), Value::Float(b)) => {
-                    Value::Float(a - b)
-                }
+                (Value::Integer(a), Value::Integer(b)) => Value::Integer(a - b),
+                (Value::Float(a), Value::Integer(b)) => Value::Float(a - *b as f64),
+                (Value::Integer(a), Value::Float(b)) => Value::Float(*a as f64 - b),
+                (Value::Float(a), Value::Float(b)) => Value::Float(a - b),
                 _ => unreachable!(),
             })
         } else {
@@ -182,18 +174,10 @@ impl Interpreter {
             let vals = self.eval_all(args)?;
             assert_all_numeric_type("division", &vals)?;
             Ok(match (&vals[0], &vals[1]) {
-                (Value::Integer(a), Value::Integer(b)) => {
-                    Value::Integer(a / b)
-                }
-                (Value::Float(a), Value::Integer(b)) => {
-                    Value::Float(a / *b as f64)
-                }
-                (Value::Integer(a), Value::Float(b)) => {
-                    Value::Float(*a as f64 / b)
-                }
-                (Value::Float(a), Value::Float(b)) => {
-                    Value::Float(a / b)
-                }
+                (Value::Integer(a), Value::Integer(b)) => Value::Integer(a / b),
+                (Value::Float(a), Value::Integer(b)) => Value::Float(a / *b as f64),
+                (Value::Integer(a), Value::Float(b)) => Value::Float(*a as f64 / b),
+                (Value::Float(a), Value::Float(b)) => Value::Float(a / b),
                 _ => unreachable!(),
             })
         } else {
@@ -227,11 +211,66 @@ impl Interpreter {
         comparison_type: ComparisonType,
         args: &[ast::Expression],
     ) -> EvalResult {
-        err!("Unimplemented")
+        fn compare<T: PartialOrd + PartialEq>(comparison_type: ComparisonType, a: T, b: T) -> bool {
+            match comparison_type {
+                ComparisonType::Less => a < b,
+                ComparisonType::LessEqual => a <= b,
+                ComparisonType::Greater => a > b,
+                ComparisonType::GreaterEqual => a >= b,
+                ComparisonType::Equal => a == b,
+                ComparisonType::NotEqual => a != b,
+            }
+        }
+
+        if args.len() == 2 {
+            // division
+            let vals = self.eval_all(args)?;
+            assert_all_numeric_type("division", &vals)?;
+            match (&vals[0], &vals[1]) {
+                (Value::Integer(a), Value::Integer(b)) => {
+                    Ok(Value::Boolean(compare(comparison_type, *a, *b)))
+                }
+                (Value::Float(a), Value::Integer(b)) => {
+                    Ok(Value::Boolean(compare(comparison_type, *a, *b as f64)))
+                }
+                (Value::Integer(a), Value::Float(b)) => {
+                    Ok(Value::Boolean(compare(comparison_type, *a as f64, *b)))
+                }
+                (Value::Float(a), Value::Float(b)) => {
+                    Ok(Value::Boolean(compare(comparison_type, *a, *b)))
+                }
+                (Value::Vector(_a), Value::Vector(_b)) => match comparison_type {
+                    _ => unimplemented!(),
+                },
+                _ => unreachable!(),
+            }
+        } else {
+            err!("Too many arguments for subtraction or negation.")
+        }
     }
 
     fn normal(&mut self, args: &[ast::Expression]) -> EvalResult {
-        err!("Unimplemented")
+        let vals = self.eval_all(args)?;
+        if args.len() != 2 {
+            return err!("Normal expects exactly two arguments.");
+        }
+        if let (Value::Float(mu), Value::Float(sigma)) = (&vals[0], &vals[1]) {
+            let (mu, sigma) = (*mu, *sigma);
+            let name = format!("normal({:?})", vals);
+            let distribution = Value::Distribution(Distribution {
+                sample: Rc::new(move || {
+                    use rand::prelude::*;
+                    use rand_distr::Normal;
+                    let distr = Normal::new(mu, sigma).unwrap();
+                    let mut rng = rand::thread_rng();
+                    rng.sample::<f64, _>(distr)
+                }),
+                name,
+            });
+            Ok(distribution)
+        } else {
+            err!("Arguments to normal must be floats.")
+        }
     }
 
     fn bernoulli(&mut self, args: &[ast::Expression]) -> EvalResult {
@@ -243,10 +282,6 @@ impl Interpreter {
     }
 
     fn poisson(&mut self, args: &[ast::Expression]) -> EvalResult {
-        err!("Unimplemented")
-    }
-
-    fn exponential(&mut self, args: &[ast::Expression]) -> EvalResult {
         err!("Unimplemented")
     }
 
