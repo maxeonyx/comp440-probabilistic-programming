@@ -1,17 +1,22 @@
 mod ast;
 
+macro_rules! err {
+    ($fstr:literal $(, $e:expr)*) => {
+        Err(RuntimeError::new(format!($fstr, $($e,)*)))
+    };
+}
+
+type EvalResult = Result<Value, RuntimeError>;
+
+mod built_ins;
+
+use core::fmt;
 use std::{rc::Rc};
 
 use ast::{Expression, Ident, Let};
 use lalrpop_util::lalrpop_mod;
 
 lalrpop_mod!(pub grammar);
-
-macro_rules! err {
-    ($fstr:literal $(, $e:expr)*) => {
-        Err(RuntimeError::new(format!($fstr, $($e,)*)))
-    };
-}
 
 fn main() {
     let mut args = std::env::args();
@@ -60,6 +65,21 @@ impl std::fmt::Debug for Distribution {
     }
 }
 
+#[derive(PartialEq, Debug)]
+pub enum ValueType {
+    Float,
+    Integer,
+    Boolean,
+    Distribution,
+    Vector,
+}
+
+impl fmt::Display for ValueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Value {
     Float(f64),
@@ -92,6 +112,7 @@ struct Interpreter {
 }
 
 impl Interpreter {
+
     fn new() -> Self {
         Interpreter { scope: Vec::new() }
     }
@@ -135,35 +156,6 @@ impl Interpreter {
                 let val = self.eval(body);
                 self.scope.truncate(old_scope_count);
                 val
-            }
-            Expression::Addition(elements) => {
-                if elements.len() < 2 {
-                    return err!("Multiply must have at least 2 arguments.");
-                }
-                
-                let mut sum_int = 0i64;
-                let mut sum_float = 0f64;
-                let mut all_int = true;
-                for el in elements {
-                    let val = self.eval(el)?;
-                    match val {
-                        Value::Float(v) => {
-                            sum_float += v;
-                            all_int = false;
-                        }
-                        Value::Integer(v) => {
-                            sum_float += v as f64;
-                            sum_int += v;
-                        }
-                        _ => return err!("Can't multiply types other than int and float.")
-                    }
-                }
-                
-                Ok(if all_int {
-                    Value::Integer(sum_int)
-                } else {
-                    Value::Float(sum_float)
-                })
             }
             Expression::Integer(val) => Ok(Value::Integer(*val)),
             Expression::Float(val) => Ok(Value::Float(*val)),
@@ -230,36 +222,6 @@ impl Interpreter {
                     "All params to `normal` must be floats.".to_owned(),
                 ))
             }
-
-            Expression::Multiplication(elements) => {
-                if elements.len() < 2 {
-                    return err!("Multiply must have at least 2 arguments.");
-                }
-                
-                let mut product_int = 1i64;
-                let mut product_float = 1f64;
-                let mut all_int = true;
-                for el in elements {
-                    let val = self.eval(el)?;
-                    match val {
-                        Value::Float(v) => {
-                            product_float *= v;
-                            all_int = false;
-                        }
-                        Value::Integer(v) => {
-                            product_float *= v as f64;
-                            product_int *= v;
-                        }
-                        _ => return err!("Can't multiply types other than int and float.")
-                    }
-                }
-                
-                Ok(if all_int {
-                    Value::Integer(product_int)
-                } else {
-                    Value::Float(product_float)
-                })
-            }
             // Expression::Division(left, right) => {}
             // Expression::Subtraction(left, right) => {}
             // Expression::Negation(expr) => {}
@@ -270,5 +232,13 @@ impl Interpreter {
             // Expression::Boolean(val) => {}
             x => Err(RuntimeError::new(format!("Unimplemented: {:?}", x))),
         }
+    }
+
+    fn eval_all(&mut self, args: &[ast::Expression]) -> Result<Vec<Value>, RuntimeError> {
+        let mut vals = Vec::with_capacity(args.len());
+        for arg in args {
+            vals.push(self.eval(arg)?);
+        }
+        Ok(vals)
     }
 }

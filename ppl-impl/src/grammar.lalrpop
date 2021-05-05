@@ -29,12 +29,6 @@ Expression: ast::Expression = {
 
     <l:Let> => ast::Expression::Let(l),
 
-    "(" "+" <elements:Expression*> ")" => ast::Expression::Addition(elements),
-    "(" "*" <elements:Expression*> ")" => ast::Expression::Multiplication(elements),
-    "(" "/" <e1:Expression> <e2:Expression> ")" => ast::Expression::Division(Box::new(e1), Box::new(e2)),
-    "(" "-" <e1:Expression> <e2:Expression> ")" => ast::Expression::Subtraction(Box::new(e1), Box::new(e2)),
-    
-    "(" "-" <e1:Expression> ")" => ast::Expression::Negation(Box::new(e1)),
 
     "(" "if" <e1:Expression> <e2:Expression> <e3:Expression> ")" => ast::Expression::If(Box::new(e1), Box::new(e2), Box::new(e3)),
 
@@ -42,10 +36,7 @@ Expression: ast::Expression = {
     "(" "observe" <e1:Expression> <e2:Expression> ")" => ast::Expression::Observe(Box::new(e1), Box::new(e2)),
     "(" "sample" <e1:Expression> ")" => ast::Expression::Sample(Box::new(e1)),
 
-    "(" "vector" <elements:Expression*> ")" => ast::Expression::Vector(elements),
-    "(" "hash-map" <pairs:(<Expression> <Expression>)*> ")" => ast::Expression::HashMap(pairs),
-
-
+    // Mathematical operators, comparisons, distributions, etc, are all implemented as built-in functions.
     FunctionApplication,
 
     "true" => ast::Expression::Boolean(true),
