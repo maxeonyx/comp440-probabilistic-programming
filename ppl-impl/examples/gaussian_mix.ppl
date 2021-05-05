@@ -1,0 +1,5 @@
+(let [theta (sample (beta 1 1))
+      x (sample (bernoulli theta))
+      norm1 (normal -1.0 1.0)
+      norm2 (normal  1.0 2.0)]
+    (if (= x 0) (sample norm1) (sample norm2)))
