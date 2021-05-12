@@ -1,0 +1,3 @@
+(let [v (vector 11 22)
+      x (get v 1)]
+    x)

@@ -1,5 +1,5 @@
 use core::num;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{ast, Distribution, EvalResult, Interpreter, RuntimeError, Value, ValueType};
 
@@ -195,11 +195,43 @@ impl Interpreter {
     }
 
     fn get(&mut self, args: &[ast::Expression]) -> EvalResult {
-        err!("Unimplemented")
+        if args.len() != 2 {
+            return err!("Get must have 2 arguments.");
+        }
+
+        let vals = self.eval_all(args)?;
+
+        let list = match &vals[0] {
+            Value::Vector(v) => v,
+            _ => return err!("First argument to get must be a vector."),
+        };
+
+        let index = match &vals[1] {
+            Value::Integer(v) => *v,
+            _ => return err!("Second argument to get must be an integer."),
+        };
+
+        if index as usize >= list.len() {
+            return err!("Index out of bounds.");
+        }
+
+        Ok(list[index as usize].clone())
     }
 
     fn log(&mut self, args: &[ast::Expression]) -> EvalResult {
-        err!("Unimplemented")
+        if args.len() != 1 {
+            return err!("log must have 1 argument.");
+        }
+
+        let vals = self.eval_all(args)?;
+
+        assert_all_numeric_type("log", &vals)?;
+
+        Ok(match vals[0] {
+            Value::Integer(v) => Value::Float((v as f64).ln()),
+            Value::Float(v) => Value::Float(v.ln()),
+            _ => unreachable!(),
+        })
     }
 
     fn exp(&mut self, args: &[ast::Expression]) -> EvalResult {
