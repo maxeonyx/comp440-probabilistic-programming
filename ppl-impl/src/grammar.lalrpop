@@ -19,9 +19,9 @@ Definition: ast::Definition = {
 }
 
 Let: ast::Let = {
-    "(" "let" "[" <bindings:((<Ident> <Expression>))*> "]" <body:Expression> ")" => ast::Let {
+    "(" "let" "[" <bindings:((<Ident> <Expression>))*> "]" <body:(<Expression>)*> ")" => ast::Let {
         bindings,
-        body: Box::new(body),
+        body,
     }
 }
 

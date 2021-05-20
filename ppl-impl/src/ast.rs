@@ -17,7 +17,7 @@ pub struct Definition {
 #[derive(Debug)]
 pub struct Let {
     pub bindings: Vec<(Ident, Expression)>,
-    pub body: Box<Expression>,
+    pub body: Vec<Expression>,
 }
 
 #[derive(Debug)]

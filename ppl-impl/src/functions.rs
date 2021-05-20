@@ -1,7 +1,8 @@
 use core::num;
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{ast, Distribution, EvalResult, Interpreter, RuntimeError, Value, ValueType};
+use crate::{EvalResult, ast, interpreter::Interpreter, types::{Distribution, RuntimeError, Value, ValueType}};
+
 
 enum ComparisonType {
     Less,
@@ -12,17 +13,13 @@ enum ComparisonType {
     NotEqual,
 }
 
+
+
 fn assert_all_numeric_type(fn_name: &str, vals: &[Value]) -> Result<ValueType, RuntimeError> {
     // for 0 args we return Integer, which doesn't really make sense, but we should never call this with 0 args really.
     let mut all_t = ValueType::Integer;
     for val in vals {
-        let this_el_type = match val {
-            Value::Boolean(_) => ValueType::Boolean,
-            Value::Float(_) => ValueType::Float,
-            Value::Integer(_) => ValueType::Integer,
-            Value::Distribution(_) => ValueType::Distribution,
-            Value::Vector(_) => ValueType::Vector,
-        };
+        let this_el_type = val.get_type();
 
         // float is contagious. if we ever see a float in a numeric operator the result is a float.
         if all_t == ValueType::Integer && this_el_type == ValueType::Integer {
@@ -63,6 +60,7 @@ impl Interpreter {
 
             "log" => return self.log(args),
             "exp" => return self.exp(args),
+            "sqrt" => return self.sqrt(args),
 
             "bernoulli" => return self.bernoulli(args),
             "discrete" => return self.discrete(args),
@@ -254,55 +252,81 @@ impl Interpreter {
             }
         }
 
-        if args.len() == 2 {
-            // division
-            let vals = self.eval_all(args)?;
-            assert_all_numeric_type("division", &vals)?;
-            match (&vals[0], &vals[1]) {
-                (Value::Integer(a), Value::Integer(b)) => {
-                    Ok(Value::Boolean(compare(comparison_type, *a, *b)))
-                }
-                (Value::Float(a), Value::Integer(b)) => {
-                    Ok(Value::Boolean(compare(comparison_type, *a, *b as f64)))
-                }
-                (Value::Integer(a), Value::Float(b)) => {
-                    Ok(Value::Boolean(compare(comparison_type, *a as f64, *b)))
-                }
-                (Value::Float(a), Value::Float(b)) => {
-                    Ok(Value::Boolean(compare(comparison_type, *a, *b)))
-                }
-                (Value::Vector(_a), Value::Vector(_b)) => match comparison_type {
-                    _ => unimplemented!(),
-                },
-                _ => unreachable!(),
+        if args.len() != 2 {
+            return err!("Comparison must have exactly two arguments.");
+        }
+
+        let vals = self.eval_all(args)?;
+        match (&vals[0], &vals[1]) {
+            (Value::Integer(a), Value::Integer(b)) => {
+                Ok(Value::Boolean(compare(comparison_type, *a, *b)))
             }
-        } else {
-            err!("Too many arguments for subtraction or negation.")
+            (Value::Float(a), Value::Integer(b)) => {
+                Ok(Value::Boolean(compare(comparison_type, *a, *b as f64)))
+            }
+            (Value::Integer(a), Value::Float(b)) => {
+                Ok(Value::Boolean(compare(comparison_type, *a as f64, *b)))
+            }
+            (Value::Float(a), Value::Float(b)) => {
+                Ok(Value::Boolean(compare(comparison_type, *a, *b)))
+            }
+            (Value::Vector(_a), Value::Vector(_b)) => match comparison_type {
+                _ => unimplemented!("Vector comparison not implemented."),
+            },
+            _ => unimplemented!("Comparison for this type combination not implemented."),
         }
     }
 
     fn normal(&mut self, args: &[ast::Expression]) -> EvalResult {
-        let vals = self.eval_all(args)?;
         if args.len() != 2 {
             return err!("Normal expects exactly two arguments.");
         }
-        if let (Value::Float(mu), Value::Float(sigma)) = (&vals[0], &vals[1]) {
-            let (mu, sigma) = (*mu, *sigma);
-            let name = format!("normal({:?})", vals);
-            let distribution = Value::Distribution(Distribution {
-                sample: Rc::new(move || {
-                    use rand::prelude::*;
-                    use rand_distr::Normal;
-                    let distr = Normal::new(mu, sigma).unwrap();
-                    let mut rng = rand::thread_rng();
-                    rng.sample::<f64, _>(distr)
-                }),
-                name,
-            });
-            Ok(distribution)
-        } else {
-            err!("Arguments to normal must be floats.")
+        let mut vals = self.eval_all(args)?;
+        assert_all_numeric_type("normal", &vals)?;
+        let (sigma, mu) = (vals.pop().unwrap(), vals.pop().unwrap());
+        let mu = match mu {
+            Value::Float(v) => v,
+            Value::Integer(v) => v as f64,
+            _ => unreachable!(),
+        };
+        let sigma = match sigma {
+            Value::Float(v) => v,
+            Value::Integer(v) => v as f64,
+            _ => unreachable!(),
+        };
+
+        let name = format!("normal({:?})", vals);
+        let distribution = Value::Distribution(Distribution {
+            sample: Rc::new(move || {
+                use rand::prelude::*;
+                use rand_distr::Normal;
+                let distr = Normal::new(mu, sigma).unwrap();
+                let mut rng = rand::thread_rng();
+                rng.sample::<f64, _>(distr)
+            }),
+            name,
+        });
+        Ok(distribution)
+    }
+
+    fn sqrt(&mut self, args: &[ast::Expression]) -> EvalResult {
+        if args.len() != 1 {
+            return err!("Sqrt expects exactly one argument.");
         }
+
+        let mut vals = self.eval_all(args)?;
+
+        assert_all_numeric_type("sqrt", &vals)?;
+
+        let val = vals.pop().unwrap();
+
+        let val = match val {
+            Value::Float(v) => Value::Float(v.sqrt()),
+            Value::Integer(v) => Value::Float((v as f64).sqrt()),
+            _ => unreachable!(),
+        };
+
+        Ok(val)
     }
 
     fn bernoulli(&mut self, args: &[ast::Expression]) -> EvalResult {
