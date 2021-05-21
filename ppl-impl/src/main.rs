@@ -12,9 +12,11 @@ type EvalResult = Result<Value, RuntimeError>;
 
 mod functions;
 
+use std::path::PathBuf;
+
 use clap::{AppSettings, Clap};
 use lalrpop_util::lalrpop_mod;
-use plotters::style::RGBAColor;
+use plotters::{prelude::Path, style::RGBAColor};
 use types::{RuntimeError, Value};
 
 mod interpreter;
@@ -29,11 +31,19 @@ struct Opts {
     #[clap(short, long, default_value = "10000")]
     n_samples: u64,
 
-    filename: String,
+    filename: PathBuf,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::parse();
+
+    let file_stem = match &opts.filename.file_stem() {
+        Some(s) => *s,
+        None => {
+            eprintln!("Filename is not valid.");
+            return Ok(());
+        }
+    };
     
     // Needs to be 'static, only because ParseError contains a reference and we want to return ParseError from main.
     let text: &'static str = Box::leak(std::fs::read_to_string(&opts.filename)?.into_boxed_str());
@@ -60,30 +70,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    use plotters::prelude::*;
-    let image_filename = format!("{}.png", &opts.filename);
-    let root = BitMapBackend::new(&image_filename, (640, 480)).into_drawing_area();
-    root.fill(&WHITE)?;
-    let mut chart = ChartBuilder::on(&root)
-        .caption(&image_filename, ("sans-serif", 20).into_font())
-        .margin(5)
-        .x_label_area_size(30)
-        .y_label_area_size(30)
-        .build_cartesian_2d(-10f32..10f32, 0f32..2f32)?;
-    
-    chart.configure_mesh().draw()?;
-    let color = RGBAColor::from((0u8, 150u8, 255u8, 64u8));
-    chart
-    .draw_series(plotters::series::PointSeries::of_element(samples.iter().map(|v| (*v as f32, 1.0f32)), 3, &RED, &|coord, size, style| {
-        plotters::element::BitMapElement::new(coord, (size, size))
-    }))?
-    ;
+    let data_json = serde_json::to_string(&samples)?;
 
-    chart
-        .configure_series_labels()
-        .background_style(&WHITE.mix(0.8))
-        .border_style(&BLACK)
-        .draw()?;
+    let out_dir = std::path::Path::new("data/");
+    let out_file = out_dir.join(file_stem).with_extension("json");
+
+    std::fs::create_dir_all(out_dir)?;
+    std::fs::write(out_file, data_json)?;
 
     Ok(())
 }
