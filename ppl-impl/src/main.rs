@@ -29,15 +29,15 @@ lalrpop_mod!(pub grammar);
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
     #[clap(short, long, default_value = "10000")]
-    n_samples: u64,
-
-    filename: PathBuf,
+    n_samples: usize,
+    
+    file: PathBuf,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::parse();
 
-    let file_stem = match &opts.filename.file_stem() {
+    let file_stem = match &opts.file.file_stem() {
         Some(s) => *s,
         None => {
             eprintln!("Filename is not valid.");
@@ -46,24 +46,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     
     // Needs to be 'static, only because ParseError contains a reference and we want to return ParseError from main.
-    let text: &'static str = Box::leak(std::fs::read_to_string(&opts.filename)?.into_boxed_str());
+    let text: &'static str = Box::leak(std::fs::read_to_string(&opts.file)?.into_boxed_str());
 
     let parser = grammar::ProgramParser::new();
     let ast = parser.parse(&text)?;
     println!("{:#?}", ast);
 
     let mut interpreter = Interpreter::new();
-    let samples = (0..opts.n_samples).try_fold(Vec::new(), |mut samples, _i| {
-        let val = interpreter.eval(&ast.expression)?;
-        match val {
-            Value::Float(v) => samples.push(v),
-            _ => return err!("Only float return values supported right now."),
-        };
-        Ok(samples)
-    });
+
+    let values_result = interpreter.eval_program(ast, opts.n_samples);
+
+    
+
+    let samples = values_result
+
+    use itertools::Itertools;
 
     let samples = match samples {
-        Ok(s) => s,
+        Ok(s) => {
+            match val {
+                Value::Float(v) => samples.push(v),
+                _ => return err!("Only float return values supported right now."),
+            };
+        },
         Err(e) => {
             eprintln!("{:?}", e);
             return Ok(());

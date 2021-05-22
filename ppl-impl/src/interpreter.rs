@@ -1,22 +1,30 @@
-use crate::{
-    ast::{self, Expression, Ident, Let},
-    types::{RuntimeError, Value},
-};
+use crate::{ast::{self, Expression, Ident, Let, Program}, types::{RuntimeError, Value}};
 
-struct Binding {
-    ident: String,
-    val: Value,
+use std::{collections::HashMap, convert::TryFrom, rc::Rc};
+
+pub struct Binding {
+    pub ident: String,
+    pub val: Value,
+}
+
+pub struct Function {
+    pub parameters: Vec<Ident>,
+    pub body: Expression,
 }
 
 pub(crate) struct Interpreter {
     // TODO some mutable state for the observe side effects.
     // observe_state: u64,
-    scope: Vec<Binding>,
+    pub scope: Vec<Binding>,
+    pub functions: HashMap<String, Rc<Function>>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter { scope: Vec::new() }
+        Interpreter { 
+            functions: HashMap::new(),
+            scope: Vec::new(),
+        }
     }
 
     fn lookup_var(&self, var: &Ident) -> Option<Value> {
@@ -27,6 +35,26 @@ impl Interpreter {
         }
 
         None
+    }
+
+    pub fn eval_program(&mut self, program: Program, n_samples: usize) -> Result<Vec<Value>, RuntimeError> {
+
+        for defn in program.definitions {
+            let ast::Definition { ident, params, body } = defn;
+            let Ident ( name ) = ident;
+            let function = Function {
+                parameters: params,
+                body: body,
+            };
+            self.functions.insert(name, Rc::new(function));
+        }
+        
+        let expression = program.expression;
+        (0..n_samples).try_fold(Vec::new(), |mut samples, _i| {
+            let val = self.eval(&expression)?;
+            samples.push(val);
+            Ok(samples)
+        })
     }
 
     pub fn eval(&mut self, expr: &Expression) -> Result<Value, RuntimeError> {
@@ -79,12 +107,29 @@ impl Interpreter {
                     )),
                 }
             }
-            Expression::FunctionApplication(ident, args) => self.dispatch_function(&ident.0, &args),
+            Expression::FunctionApplication(ident, args) => {
+                let vals = self.eval_all(args)?;
+                self.dispatch_function(&ident.0, vals)
+            }
             // Expression::Division(left, right) => {}
             // Expression::Subtraction(left, right) => {}
             // Expression::Negation(expr) => {}
             Expression::Observe(dist, val) => {
                 // observe does nothing for now
+                Ok(Value::Null)
+            }
+            Expression::Loop(l) => {
+                let ast::Loop { n_iters, accumulator, fn_name, params } = l;
+                // implements desugaring process from book
+                let mut accumulator = self.eval(accumulator)?;
+                let params = self.eval_all(params)?;
+                for i in 0..*n_iters {
+                    let idx = i64::try_from(i).map_err(|_| RuntimeError::new("Loop index overflow. Shouldn't be possible.".to_string()))?;
+                    let mut args = vec![Value::Integer(idx), accumulator];
+                    args.extend(params.clone().into_iter());
+                    accumulator = self.dispatch_function(&fn_name.0, args)?;
+                }
+
                 Ok(Value::Null)
             }
             // Expression::If(comp, true_branch, false_branch) => {}

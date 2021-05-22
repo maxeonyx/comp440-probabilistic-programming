@@ -21,6 +21,14 @@ pub struct Let {
 }
 
 #[derive(Debug)]
+pub struct Loop {
+    pub n_iters: usize,
+    pub accumulator: Box<Expression>,
+    pub fn_name: Ident,
+    pub params: Vec<Expression>,
+}
+
+#[derive(Debug)]
 pub enum Expression {
     Variable(Ident),
     Let(Let),
@@ -31,4 +39,5 @@ pub enum Expression {
     Boolean(bool),
     Integer(i64),
     Float(f64),
+    Loop(Loop),
 }

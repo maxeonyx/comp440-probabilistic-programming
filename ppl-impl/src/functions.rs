@@ -1,7 +1,7 @@
 use core::num;
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{EvalResult, ast, interpreter::Interpreter, types::{Distribution, RuntimeError, Value, ValueType}};
+use crate::{EvalResult, ast, interpreter::{Binding, Interpreter}, types::{Distribution, RuntimeError, Value, ValueType}};
 
 
 enum ComparisonType {
@@ -16,7 +16,7 @@ enum ComparisonType {
 
 
 fn assert_all_numeric_type(fn_name: &str, vals: &[Value]) -> Result<ValueType, RuntimeError> {
-    // for 0 args we return Integer, which doesn't really make sense, but we should never call this with 0 args really.
+    // for 0 vals we return Integer, which doesn't really make sense, but we should never call this with 0 vals really.
     let mut all_t = ValueType::Integer;
     for val in vals {
         let this_el_type = val.get_type();
@@ -38,56 +38,77 @@ impl Interpreter {
     pub fn dispatch_function(
         &mut self,
         name: &str,
-        args: &[ast::Expression],
+        vals: Vec<Value>,
     ) -> Result<Value, RuntimeError> {
         // built-insd
         match name {
-            "+" => return self.addition(args),
-            "*" => return self.multiplication(args),
-            "-" => return self.subtraction_or_negation(args),
-            "/" => return self.division(args),
+            "+" => return self.addition(vals),
+            "*" => return self.multiplication(vals),
+            "-" => return self.subtraction_or_negation(vals),
+            "/" => return self.division(vals),
 
-            "<" => return self.comparison(ComparisonType::Less, args),
-            "<=" => return self.comparison(ComparisonType::LessEqual, args),
-            "<>" => return self.comparison(ComparisonType::NotEqual, args),
-            "=" => return self.comparison(ComparisonType::Equal, args),
-            ">=" => return self.comparison(ComparisonType::GreaterEqual, args),
-            ">" => return self.comparison(ComparisonType::Greater, args),
+            "<" => return self.comparison(ComparisonType::Less, vals),
+            "<=" => return self.comparison(ComparisonType::LessEqual, vals),
+            "<>" => return self.comparison(ComparisonType::NotEqual, vals),
+            "=" => return self.comparison(ComparisonType::Equal, vals),
+            ">=" => return self.comparison(ComparisonType::GreaterEqual, vals),
+            ">" => return self.comparison(ComparisonType::Greater, vals),
 
-            "vector" => return self.vector(args),
-            "hashmap" => return self.hashmap(args),
-            "get" => return self.get(args),
+            "vector" => return self.vector(vals),
+            "hashmap" => return self.hashmap(vals),
+            "get" => return self.get(vals),
 
-            "log" => return self.log(args),
-            "exp" => return self.exp(args),
-            "sqrt" => return self.sqrt(args),
+            "log" => return self.log(vals),
+            "exp" => return self.exp(vals),
+            "sqrt" => return self.sqrt(vals),
 
-            "bernoulli" => return self.bernoulli(args),
-            "discrete" => return self.discrete(args),
+            "bernoulli" => return self.bernoulli(vals),
+            "discrete" => return self.discrete(vals),
 
-            "normal" => return self.normal(args),
-            "beta" => return self.beta(args),
-            "poisson" => return self.poisson(args),
+            "normal" => return self.normal(vals),
+            "beta" => return self.beta(vals),
+            "poisson" => return self.poisson(vals),
             _ => {}
         }
 
         // user-provided
-        // look up function name in scope
+        // look up function name in self.functions
+        
+        if self.functions.contains_key(name) {
+            let function = self.functions.get(name).unwrap();
+            let old_scope_count = self.scope.len();
+            
+            if vals.len() != function.parameters.len() {
+                return err!("{} expected {} arguments but got {}", name, function.parameters.len(), vals.len());
+            }
+
+            for (ident, val) in function.parameters.iter().zip(vals.into_iter()) {
+                let binding = Binding {
+                    ident: ident.0.clone(),
+                    val,
+                };
+                self.scope.push(binding);
+            }
+
+            let val = self.eval(&function.clone().body)?;
+            self.scope.truncate(old_scope_count);
+            
+            return Ok(val)
+        }
         // easy for FOPPL
 
         err!("Could not find function {}", name)
     }
 
-    fn addition(&mut self, args: &[ast::Expression]) -> EvalResult {
-        if args.len() < 2 {
+    fn addition(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() < 2 {
             return err!("Multiply must have at least 2 arguments.");
         }
 
         let mut sum_int = 0i64;
         let mut sum_float = 0f64;
         let mut all_int = true;
-        for el in args {
-            let val = self.eval(el)?;
+        for val in vals {
             match val {
                 Value::Float(v) => {
                     sum_float += v;
@@ -108,16 +129,15 @@ impl Interpreter {
         })
     }
 
-    fn multiplication(&mut self, args: &[ast::Expression]) -> EvalResult {
-        if args.len() < 2 {
+    fn multiplication(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() < 2 {
             return err!("Multiply must have at least 2 arguments.");
         }
 
         let mut product_int = 1i64;
         let mut product_float = 1f64;
         let mut all_int = true;
-        for el in args {
-            let val = self.eval(el)?;
+        for val in vals {
             match val {
                 Value::Float(v) => {
                     product_float *= v;
@@ -138,9 +158,8 @@ impl Interpreter {
         })
     }
 
-    fn subtraction_or_negation(&mut self, args: &[ast::Expression]) -> EvalResult {
-        if args.len() == 1 {
-            let vals = self.eval_all(args)?;
+    fn subtraction_or_negation(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() == 1 {
             // negation
             assert_all_numeric_type("negation", &vals)?;
             Ok(if let Value::Integer(a) = vals[0] {
@@ -150,9 +169,8 @@ impl Interpreter {
             } else {
                 unreachable!()
             })
-        } else if args.len() == 2 {
+        } else if vals.len() == 2 {
             // subtraction
-            let vals = self.eval_all(args)?;
             assert_all_numeric_type("subtraction", &vals)?;
             Ok(match (&vals[0], &vals[1]) {
                 (Value::Integer(a), Value::Integer(b)) => Value::Integer(a - b),
@@ -166,10 +184,9 @@ impl Interpreter {
         }
     }
 
-    fn division(&mut self, args: &[ast::Expression]) -> EvalResult {
-        if args.len() == 2 {
+    fn division(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() == 2 {
             // division
-            let vals = self.eval_all(args)?;
             assert_all_numeric_type("division", &vals)?;
             Ok(match (&vals[0], &vals[1]) {
                 (Value::Integer(a), Value::Integer(b)) => Value::Integer(a / b),
@@ -183,21 +200,18 @@ impl Interpreter {
         }
     }
 
-    fn vector(&mut self, args: &[ast::Expression]) -> EvalResult {
-        let vals = self.eval_all(args)?;
-        Ok(Value::Vector(vals))
+    fn vector(&mut self, vals: Vec<Value>) -> EvalResult {
+        Ok(Value::Vector(vals.iter().map(|v| v.clone()).collect::<Vec<_>>()))
     }
 
-    fn hashmap(&mut self, args: &[ast::Expression]) -> EvalResult {
+    fn hashmap(&mut self, vals: Vec<Value>) -> EvalResult {
         err!("Unimplemented")
     }
 
-    fn get(&mut self, args: &[ast::Expression]) -> EvalResult {
-        if args.len() != 2 {
+    fn get(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 2 {
             return err!("Get must have 2 arguments.");
         }
-
-        let vals = self.eval_all(args)?;
 
         let list = match &vals[0] {
             Value::Vector(v) => v,
@@ -216,12 +230,10 @@ impl Interpreter {
         Ok(list[index as usize].clone())
     }
 
-    fn log(&mut self, args: &[ast::Expression]) -> EvalResult {
-        if args.len() != 1 {
+    fn log(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 1 {
             return err!("log must have 1 argument.");
         }
-
-        let vals = self.eval_all(args)?;
 
         assert_all_numeric_type("log", &vals)?;
 
@@ -232,14 +244,14 @@ impl Interpreter {
         })
     }
 
-    fn exp(&mut self, args: &[ast::Expression]) -> EvalResult {
+    fn exp(&mut self, vals: Vec<Value>) -> EvalResult {
         err!("Unimplemented")
     }
 
     fn comparison(
         &mut self,
         comparison_type: ComparisonType,
-        args: &[ast::Expression],
+        vals: Vec<Value>,
     ) -> EvalResult {
         fn compare<T: PartialOrd + PartialEq>(comparison_type: ComparisonType, a: T, b: T) -> bool {
             match comparison_type {
@@ -252,11 +264,10 @@ impl Interpreter {
             }
         }
 
-        if args.len() != 2 {
+        if vals.len() != 2 {
             return err!("Comparison must have exactly two arguments.");
         }
 
-        let vals = self.eval_all(args)?;
         match (&vals[0], &vals[1]) {
             (Value::Integer(a), Value::Integer(b)) => {
                 Ok(Value::Boolean(compare(comparison_type, *a, *b)))
@@ -277,11 +288,10 @@ impl Interpreter {
         }
     }
 
-    fn normal(&mut self, args: &[ast::Expression]) -> EvalResult {
-        if args.len() != 2 {
+    fn normal(&mut self, mut vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 2 {
             return err!("Normal expects exactly two arguments.");
         }
-        let mut vals = self.eval_all(args)?;
         assert_all_numeric_type("normal", &vals)?;
         let (sigma, mu) = (vals.pop().unwrap(), vals.pop().unwrap());
         let mu = match mu {
@@ -309,12 +319,10 @@ impl Interpreter {
         Ok(distribution)
     }
 
-    fn sqrt(&mut self, args: &[ast::Expression]) -> EvalResult {
-        if args.len() != 1 {
+    fn sqrt(&mut self, mut vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 1 {
             return err!("Sqrt expects exactly one argument.");
         }
-
-        let mut vals = self.eval_all(args)?;
 
         assert_all_numeric_type("sqrt", &vals)?;
 
@@ -329,19 +337,19 @@ impl Interpreter {
         Ok(val)
     }
 
-    fn bernoulli(&mut self, args: &[ast::Expression]) -> EvalResult {
+    fn bernoulli(&mut self, vals: Vec<Value>) -> EvalResult {
         err!("Unimplemented")
     }
 
-    fn beta(&mut self, args: &[ast::Expression]) -> EvalResult {
+    fn beta(&mut self, vals: Vec<Value>) -> EvalResult {
         err!("Unimplemented")
     }
 
-    fn poisson(&mut self, args: &[ast::Expression]) -> EvalResult {
+    fn poisson(&mut self, vals: Vec<Value>) -> EvalResult {
         err!("Unimplemented")
     }
 
-    fn discrete(&mut self, args: &[ast::Expression]) -> EvalResult {
+    fn discrete(&mut self, vals: Vec<Value>) -> EvalResult {
         err!("Unimplemented")
     }
 }

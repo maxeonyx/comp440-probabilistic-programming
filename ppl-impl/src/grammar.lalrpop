@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use crate::ast;
+use std::convert::TryFrom;
 
 grammar;
 
@@ -25,9 +26,20 @@ Let: ast::Let = {
     }
 }
 
+Loop: ast::Loop = {
+    "(" "loop" <n_iters:Integer> <accumulator:Expression> <fn_name:Ident> <params:(<Expression>)*> ")" => ast::Loop {
+        n_iters: usize::try_from(n_iters).unwrap(),
+        accumulator: Box::new(accumulator),
+        fn_name,
+        params,
+    }
+}
+
 Expression: ast::Expression = {
 
     <l:Let> => ast::Expression::Let(l),
+
+    <l:Loop> => ast::Expression::Loop(l),
 
 
     "(" "if" <e1:Expression> <e2:Expression> <e3:Expression> ")" => ast::Expression::If(Box::new(e1), Box::new(e2), Box::new(e3)),
@@ -54,10 +66,10 @@ FunctionApplication: ast::Expression = {
 };
 
 Ident: ast::Ident = {
-    <s:r"[a-zA-Z][a-zA-Z0-9_]*"> => ast::Ident(s.to_owned()),
+    <s:r"[a-zA-Z_][a-zA-Z0-9_\-]*"> => ast::Ident(s.to_owned()),
     <s:r"(\+)|(-)|(\*)|(/)|(<)|(<=)|(<>)|(=)|(>=)|(>)"> => ast::Ident(s.to_owned()),
 }
 
-Float: f64 = <s:r"[0-9]*([0-9]\.|\.[0-9])[0-9]*"> => f64::from_str(s).unwrap();
+Float: f64 = <s:r"\-?[0-9]*([0-9]\.|\.[0-9])[0-9]*"> => f64::from_str(s).unwrap();
 
-Integer: i64 = <s:r"[0-9]+"> => i64::from_str(s).unwrap();
+Integer: i64 = <s:r"\-?[0-9]+"> => i64::from_str(s).unwrap();
