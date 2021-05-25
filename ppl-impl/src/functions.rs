@@ -57,6 +57,9 @@ impl Interpreter {
             "vector" => return self.vector(vals),
             "hashmap" => return self.hashmap(vals),
             "get" => return self.get(vals),
+            "first" => return self.first(vals),
+            "second" => return self.second(vals),
+            "rest" => return self.rest(vals),
 
             "log" => return self.log(vals),
             "exp" => return self.exp(vals),
@@ -228,6 +231,57 @@ impl Interpreter {
         }
 
         Ok(list[index as usize].clone())
+    }
+
+    fn first(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 1 {
+            return err!("first must have 1 argument.");
+        }
+
+        let list = match &vals[0] {
+            Value::Vector(v) => v,
+            _ => return err!("Argument to 'first'must be a vector."),
+        };
+
+        if list.len() < 1 {
+            return err!("Index out of bounds.");
+        }
+
+        Ok(list[0].clone())
+    }
+
+    fn second(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 1 {
+            return err!("second must have 1 argument.");
+        }
+
+        let list = match &vals[0] {
+            Value::Vector(v) => v,
+            _ => return err!("Argument to 'second' must be a vector."),
+        };
+
+        if list.len() < 2 {
+            return err!("Index out of bounds.");
+        }
+
+        Ok(list[1].clone())
+    }
+
+    fn rest(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 1 {
+            return err!("rest must have 1 argument.");
+        }
+
+        let mut list = match &vals[0] {
+            Value::Vector(v) => v,
+            _ => return err!("Argument to 'rest' must be a vector."),
+        };
+
+        if list.len() < 1 {
+            return err!("Index out of bounds.");
+        }
+
+        Ok(Value::Vector(list[1..].iter().cloned().collect()))
     }
 
     fn log(&mut self, vals: Vec<Value>) -> EvalResult {

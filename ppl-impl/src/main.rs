@@ -16,7 +16,7 @@ use std::path::PathBuf;
 
 use clap::{AppSettings, Clap};
 use lalrpop_util::lalrpop_mod;
-use plotters::{prelude::Path, style::RGBAColor};
+
 use types::{RuntimeError, Value};
 
 mod interpreter;
@@ -30,8 +30,13 @@ lalrpop_mod!(pub grammar);
 struct Opts {
     #[clap(short, long, default_value = "10000")]
     n_samples: usize,
-    
+
     file: PathBuf,
+}
+
+enum ProgramResult {
+    One(f64),
+    Many(Vec<f64>),
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -44,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     };
-    
+
     // Needs to be 'static, only because ParseError contains a reference and we want to return ParseError from main.
     let text: &'static str = Box::leak(std::fs::read_to_string(&opts.file)?.into_boxed_str());
 
@@ -54,28 +59,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut interpreter = Interpreter::new();
 
-    let values_result = interpreter.eval_program(ast, opts.n_samples);
-
-    
-
-    let samples = values_result
-
-    use itertools::Itertools;
-
-    let samples = match samples {
-        Ok(s) => {
-            match val {
-                Value::Float(v) => samples.push(v),
-                _ => return err!("Only float return values supported right now."),
-            };
-        },
+    let values_result = match interpreter.eval_program(ast, opts.n_samples) {
+        Ok(v) => v,
         Err(e) => {
             eprintln!("{:?}", e);
             return Ok(());
         }
     };
 
-    let data_json = serde_json::to_string(&samples)?;
+    let x = values_result
+        .into_iter()
+        .map(|v| match v {
+            Value::Float(f) => Ok(ProgramResult::One(f)),
+            Value::Vector(v) => {
+                let this_v = v
+                    .into_iter()
+                    .map(|v| match v {
+                        Value::Float(f) => Ok(f),
+                        _ => err!("Program should only return floats or vecs of floats."),
+                    })
+                    .collect::<Result<Vec<f64>, RuntimeError>>();
+                match this_v {
+                    Ok(v) => Ok(ProgramResult::Many(v)),
+                    Err(e) => Err(e),
+                }
+            }
+            _ => err!("Program should only return floats or vecs of floats."),
+        })
+        .collect::<Result<ProgramResult, RuntimeError>>();
+
+    let x = match x {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{:?}", e);
+            return Ok(());
+        }
+    };
+
+    let data_json = serde_json::to_string(&x)?;
 
     let out_dir = std::path::Path::new("data/");
     let out_file = out_dir.join(file_stem).with_extension("json");

@@ -378,7 +378,6 @@ name = "ppl-impl"
 version = "0.1.0"
 dependencies = [
  "clap",
- "itertools",
  "lalrpop",
  "lalrpop-util",
  "rand",

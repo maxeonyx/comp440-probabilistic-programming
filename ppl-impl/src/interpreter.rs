@@ -48,13 +48,9 @@ impl Interpreter {
             };
             self.functions.insert(name, Rc::new(function));
         }
-        
+
         let expression = program.expression;
-        (0..n_samples).try_fold(Vec::new(), |mut samples, _i| {
-            let val = self.eval(&expression)?;
-            samples.push(val);
-            Ok(samples)
-        })
+        (0..n_samples).map(|_i| self.eval(&expression)).collect::<Result<Vec<Value>, RuntimeError>>()
     }
 
     pub fn eval(&mut self, expr: &Expression) -> Result<Value, RuntimeError> {
