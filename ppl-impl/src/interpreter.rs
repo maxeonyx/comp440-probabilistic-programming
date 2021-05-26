@@ -1,4 +1,7 @@
-use crate::{ast::{self, Expression, Ident, Let, Program}, types::{RuntimeError, Value}};
+use crate::{
+    ast::{self, Expression, Ident, Let, Program},
+    types::{RuntimeError, Value},
+};
 
 use std::{collections::HashMap, convert::TryFrom, rc::Rc};
 
@@ -21,7 +24,7 @@ pub(crate) struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter { 
+        Interpreter {
             functions: HashMap::new(),
             scope: Vec::new(),
         }
@@ -37,11 +40,18 @@ impl Interpreter {
         None
     }
 
-    pub fn eval_program(&mut self, program: Program, n_samples: usize) -> Result<Vec<Value>, RuntimeError> {
-
+    pub fn eval_program(
+        &mut self,
+        program: Program,
+        n_samples: usize,
+    ) -> Result<Vec<Value>, RuntimeError> {
         for defn in program.definitions {
-            let ast::Definition { ident, params, body } = defn;
-            let Ident ( name ) = ident;
+            let ast::Definition {
+                ident,
+                params,
+                body,
+            } = defn;
+            let Ident(name) = ident;
             let function = Function {
                 parameters: params,
                 body: body,
@@ -50,7 +60,9 @@ impl Interpreter {
         }
 
         let expression = program.expression;
-        (0..n_samples).map(|_i| self.eval(&expression)).collect::<Result<Vec<Value>, RuntimeError>>()
+        (0..n_samples)
+            .map(|_i| self.eval(&expression))
+            .collect::<Result<Vec<Value>, RuntimeError>>()
     }
 
     pub fn eval(&mut self, expr: &Expression) -> Result<Value, RuntimeError> {
@@ -115,30 +127,41 @@ impl Interpreter {
                 Ok(Value::Null)
             }
             Expression::ForEach(l) => {
-                let ast::ForEach { n_iters, bindings, body } = l;
+                let ast::ForEach {
+                    n_iters,
+                    bindings,
+                    body,
+                } = l;
+                let n_iters = *n_iters;
                 // implements desugaring process from book
-                let bindings = bindings.iter().map(|(ident, expr)| {
-                    let val = self.eval(expr)?;
-                    let val = match val {
-                        Value::Vector(v) => {
-                            if v.len() != *n_iters {
-                                return err!("`foreach` binding vectors must have the specified length.")
-                            } else { v }
-                        },
-                        _ => return err!("`foreach` binding values must be vectors.")
-                    };
-                    Ok((ident.0.to_string(), val))
-                }).collect::<Result<Vec<_>, RuntimeError>>()?;
-                
+                let bindings = bindings
+                    .iter()
+                    .map(|(ident, expr)| {
+                        let val = self.eval(expr)?;
+                        let val = match val {
+                            Value::Vector(v) => {
+                                if v.len() != n_iters {
+                                    return err!(
+                                        "`foreach` binding vectors must have the specified length."
+                                    );
+                                } else {
+                                    v
+                                }
+                            }
+                            _ => return err!("`foreach` binding values must be vectors."),
+                        };
+                        Ok((ident.0.to_string(), val))
+                    })
+                    .collect::<Result<Vec<_>, RuntimeError>>()?;
+
                 let mut return_vec = Vec::with_capacity(n_iters);
-                for i in 0..*n_iters {
+                for i in 0..n_iters {
                     let old_scope_count = self.scope.len();
-                    for (ident, vec) in bindings {
-                        self.scope.push(Binding {
-                            ident,
-                            val: vec[i],
-                        });
-                    }
+                    self.scope
+                        .extend(bindings.iter().map(|(name, vec)| Binding {
+                            ident: name.clone(),
+                            val: vec[i].clone(),
+                        }));
                     let vals = self.eval_all(body);
                     self.scope.truncate(old_scope_count);
                     let mut vals = vals?;
@@ -148,12 +171,19 @@ impl Interpreter {
                 Ok(Value::Vector(return_vec))
             }
             Expression::Loop(l) => {
-                let ast::Loop { n_iters, accumulator, fn_name, params } = l;
+                let ast::Loop {
+                    n_iters,
+                    accumulator,
+                    fn_name,
+                    params,
+                } = l;
                 // implements desugaring process from book
                 let mut accumulator = self.eval(accumulator)?;
                 let params = self.eval_all(params)?;
                 for i in 0..*n_iters {
-                    let idx = i64::try_from(i).map_err(|_| RuntimeError::new("Loop index overflow. Shouldn't be possible.".to_string()))?;
+                    let idx = i64::try_from(i).map_err(|_| {
+                        RuntimeError::new("Loop index overflow. Shouldn't be possible.".to_string())
+                    })?;
                     let mut args = vec![Value::Integer(idx), accumulator];
                     args.extend(params.clone().into_iter());
                     accumulator = self.dispatch_function(&fn_name.0, args)?;
@@ -162,9 +192,7 @@ impl Interpreter {
                 Ok(accumulator)
             }
             // Expression::If(comp, true_branch, false_branch) => {}
-            Expression::Vector(elements) => {
-                Ok(Value::Vector(self.eval_all(elements)?))
-            }
+            Expression::Vector(elements) => Ok(Value::Vector(self.eval_all(elements)?)),
             // Expression::HashMap(pairs) => {}
             // Expression::Boolean(val) => {}
             x => Err(RuntimeError::new(format!("Unimplemented: {:?}", x))),

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use crate::ast;
-use std::convert::TryFrom;
+use std::convert::TryInto;
 
 grammar;
 
@@ -26,9 +26,17 @@ Let: ast::Let = {
     }
 }
 
+ForEach: ast::ForEach = {
+    "(" "foreach" <n_iters:Integer> "[" <bindings:((<Ident> <Expression>))*> "]" <body:(<Expression>)*> ")" => ast::ForEach {
+        n_iters: n_iters.try_into().unwrap(),
+        bindings,
+        body,
+    }
+}
+
 Loop: ast::Loop = {
     "(" "loop" <n_iters:Integer> <accumulator:Expression> <fn_name:Ident> <params:(<Expression>)*> ")" => ast::Loop {
-        n_iters: usize::try_from(n_iters).unwrap(),
+        n_iters: n_iters.try_into().unwrap(),
         accumulator: Box::new(accumulator),
         fn_name,
         params,
@@ -38,6 +46,8 @@ Loop: ast::Loop = {
 Expression: ast::Expression = {
 
     <l:Let> => ast::Expression::Let(l),
+
+    <l:ForEach> => ast::Expression::ForEach(l),
 
     <l:Loop> => ast::Expression::Loop(l),
 

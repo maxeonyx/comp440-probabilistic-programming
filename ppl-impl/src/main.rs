@@ -41,7 +41,6 @@ enum ProgramResult {
     Many(Vec<IntOrFloat>),
 }
 
-
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 enum IntOrFloat {
@@ -68,6 +67,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:#?}", ast);
 
     let mut interpreter = Interpreter::new();
+
+    if opts.n_samples == 1 {
+        let result = interpreter
+            .eval_program(ast, opts.n_samples)
+            .unwrap()
+            .pop()
+            .unwrap();
+        println!("{:?}", result);
+        return Ok(());
+    }
 
     let values_result = match interpreter.eval_program(ast, opts.n_samples) {
         Ok(v) => v,
