@@ -114,6 +114,39 @@ impl Interpreter {
                 // observe does nothing for now
                 Ok(Value::Null)
             }
+            Expression::ForEach(l) => {
+                let ast::ForEach { n_iters, bindings, body } = l;
+                // implements desugaring process from book
+                let bindings = bindings.iter().map(|(ident, expr)| {
+                    let val = self.eval(expr)?;
+                    let val = match val {
+                        Value::Vector(v) => {
+                            if v.len() != *n_iters {
+                                return err!("`foreach` binding vectors must have the specified length.")
+                            } else { v }
+                        },
+                        _ => return err!("`foreach` binding values must be vectors.")
+                    };
+                    Ok((ident.0.to_string(), val))
+                }).collect::<Result<Vec<_>, RuntimeError>>()?;
+                
+                let mut return_vec = Vec::with_capacity(n_iters);
+                for i in 0..*n_iters {
+                    let old_scope_count = self.scope.len();
+                    for (ident, vec) in bindings {
+                        self.scope.push(Binding {
+                            ident,
+                            val: vec[i],
+                        });
+                    }
+                    let vals = self.eval_all(body);
+                    self.scope.truncate(old_scope_count);
+                    let mut vals = vals?;
+                    return_vec.push(vals.pop().unwrap());
+                }
+
+                Ok(Value::Vector(return_vec))
+            }
             Expression::Loop(l) => {
                 let ast::Loop { n_iters, accumulator, fn_name, params } = l;
                 // implements desugaring process from book

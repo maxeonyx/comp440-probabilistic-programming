@@ -21,6 +21,13 @@ pub struct Let {
 }
 
 #[derive(Debug)]
+pub struct ForEach {
+    pub n_iters: usize,
+    pub bindings: Vec<(Ident, Expression)>,
+    pub body: Vec<Expression>,
+}
+
+#[derive(Debug)]
 pub struct Loop {
     pub n_iters: usize,
     pub accumulator: Box<Expression>,
@@ -40,5 +47,6 @@ pub enum Expression {
     Integer(i64),
     Float(f64),
     Vector(Vec<Expression>),
+    ForEach(ForEach),
     Loop(Loop),
 }
