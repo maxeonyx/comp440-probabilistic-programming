@@ -58,6 +58,8 @@ Expression: ast::Expression = {
 
     <f:Float> => ast::Expression::Float(f),
     <i:Integer> => ast::Expression::Integer(i),
+
+    "[" <v:(<Expression>)*> "]" => ast::Expression::Vector(v),
 }
 
 // Function or built-in. Name resolved at runtime.

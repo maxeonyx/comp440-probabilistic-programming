@@ -97,7 +97,7 @@ impl Interpreter {
             Expression::Sample(expr) => {
                 let val = self.eval(expr)?;
                 match val {
-                    Value::Distribution(d) => Ok(Value::Float((d.sample)())),
+                    Value::Distribution(d) => (d.sample)(),
                     _ => Err(RuntimeError::new(
                         "Sample must only be called on a Distribution value.".to_owned(),
                     )),
@@ -126,10 +126,12 @@ impl Interpreter {
                     accumulator = self.dispatch_function(&fn_name.0, args)?;
                 }
 
-                Ok(Value::Null)
+                Ok(accumulator)
             }
             // Expression::If(comp, true_branch, false_branch) => {}
-            // Expression::Vector(elements) => {}
+            Expression::Vector(elements) => {
+                Ok(Value::Vector(self.eval_all(elements)?))
+            }
             // Expression::HashMap(pairs) => {}
             // Expression::Boolean(val) => {}
             x => Err(RuntimeError::new(format!("Unimplemented: {:?}", x))),

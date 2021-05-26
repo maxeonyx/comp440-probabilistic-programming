@@ -27,7 +27,7 @@ fn assert_all_numeric_type(fn_name: &str, vals: &[Value]) -> Result<ValueType, R
         } else if this_el_type == ValueType::Float {
             all_t = ValueType::Float;
         } else {
-            return err!("Expected a numeric type, but found {}", this_el_type);
+            return err!("{} expected a numeric type, but found {}", fn_name, this_el_type);
         }
     }
 
@@ -59,22 +59,25 @@ impl Interpreter {
             "get" => return self.get(vals),
             "first" => return self.first(vals),
             "second" => return self.second(vals),
+            "last" => return self.last(vals),
             "rest" => return self.rest(vals),
+            "append" => return self.append(vals),
 
             "log" => return self.log(vals),
             "exp" => return self.exp(vals),
             "sqrt" => return self.sqrt(vals),
 
-            "bernoulli" => return self.bernoulli(vals),
+            // "bernoulli" => return self.bernoulli(vals),
             "discrete" => return self.discrete(vals),
 
             "normal" => return self.normal(vals),
-            "beta" => return self.beta(vals),
-            "poisson" => return self.poisson(vals),
+            // "beta" => return self.beta(vals),
+            // "poisson" => return self.poisson(vals),
             _ => {}
         }
 
         // user-provided
+        // easy for FOPPL, no scope needed
         // look up function name in self.functions
         
         if self.functions.contains_key(name) {
@@ -98,9 +101,7 @@ impl Interpreter {
             
             return Ok(val)
         }
-        // easy for FOPPL
-
-        err!("Could not find function {}", name)
+        err!("Could not find function `{}`", name)
     }
 
     fn addition(&mut self, vals: Vec<Value>) -> EvalResult {
@@ -213,17 +214,17 @@ impl Interpreter {
 
     fn get(&mut self, vals: Vec<Value>) -> EvalResult {
         if vals.len() != 2 {
-            return err!("Get must have 2 arguments.");
+            return err!("`get` must have 2 arguments.");
         }
 
         let list = match &vals[0] {
             Value::Vector(v) => v,
-            _ => return err!("First argument to get must be a vector."),
+            _ => return err!("First argument to `get` must be a vector."),
         };
 
         let index = match &vals[1] {
             Value::Integer(v) => *v,
-            _ => return err!("Second argument to get must be an integer."),
+            _ => return err!("Second argument to `get` must be an integer."),
         };
 
         if index as usize >= list.len() {
@@ -235,12 +236,12 @@ impl Interpreter {
 
     fn first(&mut self, vals: Vec<Value>) -> EvalResult {
         if vals.len() != 1 {
-            return err!("first must have 1 argument.");
+            return err!("`first` must have 1 argument.");
         }
 
         let list = match &vals[0] {
             Value::Vector(v) => v,
-            _ => return err!("Argument to 'first'must be a vector."),
+            _ => return err!("Argument to `first` must be a vector."),
         };
 
         if list.len() < 1 {
@@ -252,12 +253,12 @@ impl Interpreter {
 
     fn second(&mut self, vals: Vec<Value>) -> EvalResult {
         if vals.len() != 1 {
-            return err!("second must have 1 argument.");
+            return err!("`second` must have 1 argument.");
         }
 
         let list = match &vals[0] {
             Value::Vector(v) => v,
-            _ => return err!("Argument to 'second' must be a vector."),
+            _ => return err!("Argument to `second` must be a vector."),
         };
 
         if list.len() < 2 {
@@ -267,9 +268,27 @@ impl Interpreter {
         Ok(list[1].clone())
     }
 
+    fn last(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 1 {
+            return err!("`last` must have exactly 1 argument.");
+        }
+
+        let list = match &vals[0] {
+            Value::Vector(v) => v,
+            _ => return err!("Argument to `last` must be a vector."),
+        };
+
+        if list.len() < 1 {
+            return err!("Index out of bounds.");
+        }
+
+        Ok(list[list.len() - 1].clone())
+    }
+
+
     fn rest(&mut self, vals: Vec<Value>) -> EvalResult {
         if vals.len() != 1 {
-            return err!("rest must have 1 argument.");
+            return err!("`rest` must have exactly 1 argument.");
         }
 
         let mut list = match &vals[0] {
@@ -282,6 +301,23 @@ impl Interpreter {
         }
 
         Ok(Value::Vector(list[1..].iter().cloned().collect()))
+    }
+
+    fn append(&mut self, mut vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 2 {
+            return err!("`append` must have exactly 2 arguments.");
+        }
+
+        let el = vals.pop().unwrap();
+
+        let mut vec = match vals.pop().unwrap() {
+            Value::Vector(v) => v,
+            _ => return err!("First argument to `append` must be a vector."),
+        };
+
+        vec.push(el);
+
+        Ok(Value::Vector(vec))
     }
 
     fn log(&mut self, vals: Vec<Value>) -> EvalResult {
@@ -299,7 +335,35 @@ impl Interpreter {
     }
 
     fn exp(&mut self, vals: Vec<Value>) -> EvalResult {
-        err!("Unimplemented")
+        if vals.len() != 1 {
+            return err!("log must have 1 argument.");
+        }
+
+        assert_all_numeric_type("exp", &vals)?;
+
+        Ok(match vals[0] {
+            Value::Integer(v) => Value::Float((v as f64).exp()),
+            Value::Float(v) => Value::Float(v.exp()),
+            _ => unreachable!(),
+        })
+    }
+
+    fn sqrt(&mut self, mut vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 1 {
+            return err!("Sqrt expects exactly one argument.");
+        }
+
+        assert_all_numeric_type("sqrt", &vals)?;
+
+        let val = vals.pop().unwrap();
+
+        let val = match val {
+            Value::Float(v) => Value::Float(v.sqrt()),
+            Value::Integer(v) => Value::Float((v as f64).sqrt()),
+            _ => unreachable!(),
+        };
+
+        Ok(val)
     }
 
     fn comparison(
@@ -364,46 +428,50 @@ impl Interpreter {
             sample: Rc::new(move || {
                 use rand::prelude::*;
                 use rand_distr::Normal;
-                let distr = Normal::new(mu, sigma).unwrap();
+                let distr = 
+                match Normal::new(mu, sigma) {
+                    Ok(dist) => dist,
+                    Err(_) => return err!("Error creating discrete distribution."),
+                };
                 let mut rng = rand::thread_rng();
-                rng.sample::<f64, _>(distr)
+                Ok(Value::Float(rng.sample::<f64, _>(distr)))
             }),
             name,
         });
         Ok(distribution)
     }
 
-    fn sqrt(&mut self, mut vals: Vec<Value>) -> EvalResult {
+    fn discrete(&mut self, mut vals: Vec<Value>) -> EvalResult {
         if vals.len() != 1 {
-            return err!("Sqrt expects exactly one argument.");
+            return err!("`discrete` expects exactly 1 argument, a vector of numbers.");
         }
-
-        assert_all_numeric_type("sqrt", &vals)?;
-
-        let val = vals.pop().unwrap();
-
-        let val = match val {
-            Value::Float(v) => Value::Float(v.sqrt()),
-            Value::Integer(v) => Value::Float((v as f64).sqrt()),
-            _ => unreachable!(),
+        let vals = match vals.pop().unwrap() {
+            Value::Vector(v) => v,
+            _ => return err!("`discrete` expects exactly 1 argument, a vector of numbers."),
         };
-
-        Ok(val)
-    }
-
-    fn bernoulli(&mut self, vals: Vec<Value>) -> EvalResult {
-        err!("Unimplemented")
-    }
-
-    fn beta(&mut self, vals: Vec<Value>) -> EvalResult {
-        err!("Unimplemented")
-    }
-
-    fn poisson(&mut self, vals: Vec<Value>) -> EvalResult {
-        err!("Unimplemented")
-    }
-
-    fn discrete(&mut self, vals: Vec<Value>) -> EvalResult {
-        err!("Unimplemented")
+        assert_all_numeric_type("discrete", &vals)?;
+        let name = format!("discrete({:?})", &vals);
+        let weights = vals.into_iter().map(|v| {
+            match v {
+                Value::Float(f) => f,
+                Value::Integer(i) => i as f64,
+                _ => unreachable!(),
+            }
+        }).collect::<Vec<f64>>();
+        let distribution = Value::Distribution(Distribution {
+            sample: Rc::new(move || {
+                use rand::prelude::*;
+                use rand_distr::WeightedIndex;
+                let distr = match WeightedIndex::new(&weights) {
+                    Ok(w) => w,
+                    Err(_) => return err!("Error creating `discrete` distribution."),
+                };
+                let mut rng = rand::thread_rng();
+                let val = rng.sample::<usize, _>(distr);
+                Ok(Value::Integer(val as i64))
+            }),
+            name,
+        });
+        Ok(distribution)
     }
 }

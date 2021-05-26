@@ -39,5 +39,6 @@ pub enum Expression {
     Boolean(bool),
     Integer(i64),
     Float(f64),
+    Vector(Vec<Expression>),
     Loop(Loop),
 }

@@ -33,10 +33,20 @@ struct Opts {
 
     file: PathBuf,
 }
-
+use serde::Serialize;
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
 enum ProgramResult {
-    One(f64),
-    Many(Vec<f64>),
+    One(IntOrFloat),
+    Many(Vec<IntOrFloat>),
+}
+
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+enum IntOrFloat {
+    Int(i64),
+    Float(f64),
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -70,23 +80,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let x = values_result
         .into_iter()
         .map(|v| match v {
-            Value::Float(f) => Ok(ProgramResult::One(f)),
+            Value::Integer(i) => Ok(ProgramResult::One(IntOrFloat::Int(i))),
+            Value::Float(f) => Ok(ProgramResult::One(IntOrFloat::Float(f))),
             Value::Vector(v) => {
                 let this_v = v
                     .into_iter()
                     .map(|v| match v {
-                        Value::Float(f) => Ok(f),
-                        _ => err!("Program should only return floats or vecs of floats."),
+                        Value::Integer(i) => Ok(IntOrFloat::Int(i)),
+                        Value::Float(f) => Ok(IntOrFloat::Float(f)),
+                        _ => err!("Program should only return numbers or vecs of numbers."),
                     })
-                    .collect::<Result<Vec<f64>, RuntimeError>>();
+                    .collect::<Result<Vec<IntOrFloat>, RuntimeError>>();
                 match this_v {
                     Ok(v) => Ok(ProgramResult::Many(v)),
                     Err(e) => Err(e),
                 }
             }
-            _ => err!("Program should only return floats or vecs of floats."),
+            _ => err!("Program should only return numbers or vecs of numbers."),
         })
-        .collect::<Result<ProgramResult, RuntimeError>>();
+        .collect::<Result<Vec<ProgramResult>, RuntimeError>>();
 
     let x = match x {
         Ok(v) => v,

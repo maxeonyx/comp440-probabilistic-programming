@@ -2,7 +2,7 @@ use std::{fmt, rc::Rc};
 
 #[derive(Clone)]
 pub struct Distribution {
-    pub sample: Rc<dyn Fn() -> f64>,
+    pub sample: Rc<dyn Fn() -> Result<Value, RuntimeError>>,
     pub name: String,
 }
 
