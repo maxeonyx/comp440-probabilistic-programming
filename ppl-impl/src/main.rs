@@ -28,11 +28,26 @@ lalrpop_mod!(pub grammar);
 #[derive(Clap)]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
-    #[clap(short, long, default_value = "10000")]
-    n_samples: usize,
-
-    file: PathBuf,
+    #[clap(subcommand)]
+    cmd: Command,
 }
+
+#[derive(Clap)]
+#[clap(setting = AppSettings::ColoredHelp)]
+enum Command {
+    PriorOnly {
+        #[clap(short, long, default_value = "10000")]
+        n_samples: usize,
+        file: PathBuf,
+    },
+    Infer {
+        file: PathBuf,
+    },
+    EvalOnce {
+        file: PathBuf,
+    },
+}
+
 use serde::Serialize;
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
@@ -51,8 +66,14 @@ enum IntOrFloat {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::parse();
 
-    let file_stem = match &opts.file.file_stem() {
-        Some(s) => *s,
+    let file_name = match &opts.cmd {
+        Command::EvalOnce { file, .. } => file,
+        Command::PriorOnly { file, .. } => file,
+        Command::Infer { file, .. } => file,
+    };
+
+    let file_stem = match file_name.file_stem() {
+        Some(s) => s,
         None => {
             eprintln!("Filename is not valid.");
             return Ok(());
@@ -60,38 +81,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Needs to be 'static, only because ParseError contains a reference and we want to return ParseError from main.
-    let text: &'static str = Box::leak(std::fs::read_to_string(&opts.file)?.into_boxed_str());
+    let text: &'static str = Box::leak(std::fs::read_to_string(file_name)?.into_boxed_str());
 
     let parser = grammar::ProgramParser::new();
-    let ast = parser.parse(&text)?;
-    println!("{:#?}", ast);
+    let program = parser.parse(&text)?;
+    println!("{:#?}", program);
 
     let mut interpreter = Interpreter::new();
 
-    if opts.n_samples == 1 {
-        let result = interpreter
-            .eval_program(ast, opts.n_samples)
-            .unwrap()
-            .pop()
-            .unwrap();
-        println!("{:#?}", result);
-        return Ok(());
-    }
+    let vals = match opts.cmd {
+        Command::EvalOnce { .. } => interpreter.eval_program(program, 1),
+        Command::PriorOnly { n_samples, .. } => interpreter.eval_program(program, n_samples),
+        Command::Infer { .. } => unimplemented!("Inference not implemented yet."),
+    };
 
     fn flatten_to_numeric_vec_only(vals: Vec<Value>) -> Result<Vec<ProgramResult>, RuntimeError> {
         vals.into_iter()
-        .map(|v| match v {
-            Value::Integer(i) => Ok(ProgramResult::One(IntOrFloat::Int(i))),
-            Value::Float(f) => Ok(ProgramResult::One(IntOrFloat::Float(f))),
-            Value::Vector(v) => {
-                Ok(ProgramResult::Many(flatten_to_numeric_vec_only(v)?))
-            }
-            _ => err!("Program should only return numbers or vecs of numbers."),
-        })
-        .collect::<Result<Vec<ProgramResult>, RuntimeError>>()
-    }
-    
-    let vals = match interpreter.eval_program(ast, opts.n_samples) {
+            .map(|v| match v {
+                Value::Integer(i) => Ok(ProgramResult::One(IntOrFloat::Int(i))),
+                Value::Float(f) => Ok(ProgramResult::One(IntOrFloat::Float(f))),
+                Value::Vector(v) => Ok(ProgramResult::Many(flatten_to_numeric_vec_only(v)?)),
+                _ => err!("Program should only return numbers or vecs of numbers."),
+            })
+            .collect::<Result<Vec<ProgramResult>, RuntimeError>>()
+    };
+
+    let vals = vals.and_then(|vals| flatten_to_numeric_vec_only(vals));
+
+    let vals = match vals {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{:?}", e);
@@ -99,13 +116,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let vals = match flatten_to_numeric_vec_only(vals) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("{:?}", e);
+    match opts.cmd {
+        Command::EvalOnce { .. } => {
+            println!("{:#?}", vals[0]);
             return Ok(());
         }
-    };
+        _ => {}
+    }
 
     let data_json = serde_json::to_string(&vals)?;
 
