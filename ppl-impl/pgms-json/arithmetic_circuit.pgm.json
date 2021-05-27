@@ -1,0 +1,126 @@
+[
+    {},
+    {
+        "V": [
+            "sample5",
+            "sample0",
+            "observe6",
+            "observe7",
+            "sample4",
+            "sample2",
+            "sample1",
+            "sample3"
+        ],
+        "A": {
+            "sample0": [
+                "sample2",
+                "sample3"
+            ],
+            "sample1": [
+                "sample2",
+                "sample3"
+            ],
+            "sample4": [
+                "sample5"
+            ],
+            "sample3": [
+                "sample5",
+                "observe6"
+            ],
+            "sample5": [
+                "observe7"
+            ]
+        },
+        "P": {
+            "sample0": [
+                "sample*",
+                [
+                    "laplace",
+                    20.0,
+                    2.0
+                ]
+            ],
+            "sample1": [
+                "sample*",
+                [
+                    "laplace",
+                    10.0,
+                    2.0
+                ]
+            ],
+            "sample2": [
+                "sample*",
+                [
+                    "normal",
+                    [
+                        "+",
+                        "sample0",
+                        "sample1"
+                    ],
+                    0.1
+                ]
+            ],
+            "sample3": [
+                "sample*",
+                [
+                    "normal",
+                    [
+                        "*",
+                        "sample0",
+                        "sample1"
+                    ],
+                    0.1
+                ]
+            ],
+            "sample4": [
+                "sample*",
+                [
+                    "normal",
+                    7.0,
+                    2.0
+                ]
+            ],
+            "sample5": [
+                "sample*",
+                [
+                    "normal",
+                    "sample3",
+                    "sample4"
+                ]
+            ],
+            "observe6": [
+                "observe*",
+                [
+                    "normal",
+                    [
+                        "+",
+                        "sample3"
+                    ],
+                    0.1
+                ],
+                0.2
+            ],
+            "observe7": [
+                "observe*",
+                [
+                    "normal",
+                    "sample5",
+                    0.1
+                ],
+                -3.5
+            ]
+        },
+        "Y": {
+            "observe6": 0.2,
+            "observe7": -3.5
+        }
+    },
+    [
+        "sample0",
+        "sample1",
+        "sample2",
+        "sample3",
+        "sample4",
+        "sample5"
+    ]
+]

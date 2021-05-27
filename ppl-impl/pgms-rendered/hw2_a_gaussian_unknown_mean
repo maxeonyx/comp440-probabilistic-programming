@@ -1,0 +1,13 @@
+digraph {
+	observe3_factor [label="normal(...)" shape=box]
+	observe3 [fillcolor=gray shape=circle]
+	observe3_factor -> observe3
+	observe4_factor [label="normal(...)" shape=box]
+	observe4 [fillcolor=gray shape=circle]
+	observe4_factor -> observe4
+	sample2_factor [label="normal(...)" shape=box]
+	sample2 [fillcolor=white shape=circle]
+	sample2_factor -> sample2
+	sample2 -> observe3_factor
+	sample2 -> observe4_factor
+}
