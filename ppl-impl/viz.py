@@ -93,7 +93,7 @@ def render_graphs():
         graph = graphviz.Digraph(format="png")
         for node in g["V"]:
             dist_type = g["P"][node][1][0]
-            graph.node(node+"_factor", label=f"{dist_type}(...)", shape="box")
+            graph.node(node+"_factor", label=f"({dist_type} ...)", shape="box")
             observed = node in g["Y"]
             graph.node(node,  shape="circle", fillcolor = "gray" if observed else "white")
             graph.edge(node+"_factor", node)

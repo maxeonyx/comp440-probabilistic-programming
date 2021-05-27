@@ -1,26 +1,26 @@
 digraph {
-	sample5_factor [label="normal(...)" shape=box]
+	sample5_factor [label="(normal ...)" shape=box]
 	sample5 [fillcolor=white shape=circle]
 	sample5_factor -> sample5
-	sample0_factor [label="laplace(...)" shape=box]
+	sample0_factor [label="(laplace ...)" shape=box]
 	sample0 [fillcolor=white shape=circle]
 	sample0_factor -> sample0
-	observe6_factor [label="normal(...)" shape=box]
+	observe6_factor [label="(normal ...)" shape=box]
 	observe6 [fillcolor=gray shape=circle]
 	observe6_factor -> observe6
-	observe7_factor [label="normal(...)" shape=box]
+	observe7_factor [label="(normal ...)" shape=box]
 	observe7 [fillcolor=gray shape=circle]
 	observe7_factor -> observe7
-	sample4_factor [label="normal(...)" shape=box]
+	sample4_factor [label="(normal ...)" shape=box]
 	sample4 [fillcolor=white shape=circle]
 	sample4_factor -> sample4
-	sample2_factor [label="normal(...)" shape=box]
+	sample2_factor [label="(normal ...)" shape=box]
 	sample2 [fillcolor=white shape=circle]
 	sample2_factor -> sample2
-	sample1_factor [label="laplace(...)" shape=box]
+	sample1_factor [label="(laplace ...)" shape=box]
 	sample1 [fillcolor=white shape=circle]
 	sample1_factor -> sample1
-	sample3_factor [label="normal(...)" shape=box]
+	sample3_factor [label="(normal ...)" shape=box]
 	sample3 [fillcolor=white shape=circle]
 	sample3_factor -> sample3
 	sample0 -> sample2_factor
