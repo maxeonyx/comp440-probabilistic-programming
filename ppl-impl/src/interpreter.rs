@@ -122,7 +122,7 @@ impl Interpreter {
             // Expression::Division(left, right) => {}
             // Expression::Subtraction(left, right) => {}
             // Expression::Negation(expr) => {}
-            Expression::Observe(dist, val) => {
+            Expression::Observe(_dist, _val) => {
                 // observe does nothing for now
                 Ok(Value::Null)
             }

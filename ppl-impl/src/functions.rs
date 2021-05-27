@@ -1,8 +1,6 @@
-use core::num;
-use std::{collections::HashMap, convert::TryInto, convert::TryFrom, rc::Rc, usize};
+use std::{convert::TryFrom, rc::Rc, usize};
 
 use crate::{
-    ast,
     interpreter::{Binding, Interpreter},
     types::{Distribution, RuntimeError, Value, ValueType},
     EvalResult,
@@ -61,7 +59,6 @@ impl Interpreter {
             ">" => return self.comparison(ComparisonType::Greater, vals),
 
             "vector" => return self.vector(vals),
-            "hashmap" => return self.hashmap(vals),
             "get" => return self.get(vals),
             "first" => return self.first(vals),
             "second" => return self.second(vals),
@@ -94,7 +91,7 @@ impl Interpreter {
         // look up function name in self.functions
 
         if self.functions.contains_key(name) {
-            let function = self.functions.get(name).unwrap();
+            let function = self.functions.get(name).unwrap().clone();
             let old_scope_count = self.scope.len();
 
             if vals.len() != function.parameters.len() {
@@ -228,10 +225,6 @@ impl Interpreter {
         ))
     }
 
-    fn hashmap(&mut self, vals: Vec<Value>) -> EvalResult {
-        err!("Unimplemented")
-    }
-
     fn get(&mut self, vals: Vec<Value>) -> EvalResult {
         if vals.len() != 2 {
             return err!("`get` must have 2 arguments.");
@@ -310,7 +303,7 @@ impl Interpreter {
             return err!("`rest` must have exactly 1 argument.");
         }
 
-        let mut list = match &vals[0] {
+        let list = match &vals[0] {
             Value::Vector(v) => v,
             _ => return err!("Argument to 'rest' must be a vector."),
         };
@@ -377,7 +370,11 @@ impl Interpreter {
             return err!("`mat-repmat` must have exactly 3 arguments.");
         }
 
-        let (v2, v1, v0) = (vals.pop().unwrap(), vals.pop().unwrap(), vals.pop().unwrap());
+        let (v2, v1, v0) = (
+            vals.pop().unwrap(),
+            vals.pop().unwrap(),
+            vals.pop().unwrap(),
+        );
 
         let mat1 = match v0 {
             Value::Vector(v) => v,
@@ -429,11 +426,11 @@ impl Interpreter {
         let n_rows = unwrapped_mat1.len();
         let n_cols = mat1_first_el_len;
 
-        let mut matrix = Vec::with_capacity(n_rows*n_rows_mul);
-        for i in 0..(n_rows*n_rows_mul) {
+        let mut matrix = Vec::with_capacity(n_rows * n_rows_mul);
+        for i in 0..(n_rows * n_rows_mul) {
             let i = i % n_rows;
-            let mut row = Vec::with_capacity(n_cols*n_cols_mul);
-            for j in 0..n_cols*n_cols_mul {
+            let mut row = Vec::with_capacity(n_cols * n_cols_mul);
+            for j in 0..n_cols * n_cols_mul {
                 let j = j % n_cols;
                 row.push(unwrapped_mat1[i][j].clone());
             }
