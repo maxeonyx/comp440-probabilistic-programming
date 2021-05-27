@@ -38,7 +38,7 @@ use serde::Serialize;
 #[serde(untagged)]
 enum ProgramResult {
     One(IntOrFloat),
-    Many(Vec<IntOrFloat>),
+    Many(Vec<ProgramResult>),
 }
 
 #[derive(Debug, Serialize)]
@@ -74,42 +74,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap()
             .pop()
             .unwrap();
-        println!("{:?}", result);
+        println!("{:#?}", result);
         return Ok(());
     }
 
-    let values_result = match interpreter.eval_program(ast, opts.n_samples) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("{:?}", e);
-            return Ok(());
-        }
-    };
-
-    let x = values_result
-        .into_iter()
+    fn flatten_to_numeric_vec_only(vals: Vec<Value>) -> Result<Vec<ProgramResult>, RuntimeError> {
+        vals.into_iter()
         .map(|v| match v {
             Value::Integer(i) => Ok(ProgramResult::One(IntOrFloat::Int(i))),
             Value::Float(f) => Ok(ProgramResult::One(IntOrFloat::Float(f))),
             Value::Vector(v) => {
-                let this_v = v
-                    .into_iter()
-                    .map(|v| match v {
-                        Value::Integer(i) => Ok(IntOrFloat::Int(i)),
-                        Value::Float(f) => Ok(IntOrFloat::Float(f)),
-                        _ => err!("Program should only return numbers or vecs of numbers."),
-                    })
-                    .collect::<Result<Vec<IntOrFloat>, RuntimeError>>();
-                match this_v {
-                    Ok(v) => Ok(ProgramResult::Many(v)),
-                    Err(e) => Err(e),
-                }
+                Ok(ProgramResult::Many(flatten_to_numeric_vec_only(v)?))
             }
             _ => err!("Program should only return numbers or vecs of numbers."),
         })
-        .collect::<Result<Vec<ProgramResult>, RuntimeError>>();
-
-    let x = match x {
+        .collect::<Result<Vec<ProgramResult>, RuntimeError>>()
+    }
+    
+    let vals = match interpreter.eval_program(ast, opts.n_samples) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{:?}", e);
@@ -117,7 +99,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let data_json = serde_json::to_string(&x)?;
+    let vals = match flatten_to_numeric_vec_only(vals) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{:?}", e);
+            return Ok(());
+        }
+    };
+
+    let data_json = serde_json::to_string(&vals)?;
 
     let out_dir = std::path::Path::new("data/");
     let out_file = out_dir.join(file_stem).with_extension("json");

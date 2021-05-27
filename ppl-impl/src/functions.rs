@@ -1,5 +1,5 @@
 use core::num;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, convert::TryInto, convert::TryFrom, rc::Rc, usize};
 
 use crate::{
     ast,
@@ -70,8 +70,11 @@ impl Interpreter {
             "append" => return self.append(vals),
 
             "mat-transpose" => return self.matrix_transpose(vals),
+            "mat-repmat" => return self.matrix_repeat(vals),
             "mat-mul" => return self.matrix_multiply(vals),
             "mat-add" => return self.matrix_addition(vals),
+
+            "mat-tanh" => return self.matrix_tanh(vals),
 
             "log" => return self.log(vals),
             "exp" => return self.exp(vals),
@@ -369,41 +372,112 @@ impl Interpreter {
         Ok(Value::Vector(transposed))
     }
 
+    fn matrix_repeat(&mut self, mut vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 3 {
+            return err!("`mat-repmat` must have exactly 3 arguments.");
+        }
+
+        let (v2, v1, v0) = (vals.pop().unwrap(), vals.pop().unwrap(), vals.pop().unwrap());
+
+        let mat1 = match v0 {
+            Value::Vector(v) => v,
+            _ => return err!("Argument 1 to `mat-repmat` must be a vector of vectors."),
+        };
+
+        if mat1.len() < 1 {
+            return err!("Argument 1 to `mat-repmat` must have at least one element.");
+        }
+
+        let mat1_first_el_len = match &mat1[0] {
+            Value::Vector(v) => v.len(),
+            _ => return err!("Argument 1 to `mat-repmat` must be a vector of vectors."),
+        };
+
+        if mat1_first_el_len < 1 {
+            return err!("All sub-vectors given to `mat-repmat` must have at least one element.");
+        }
+
+        let unwrapped_mat1 = mat1
+            .into_iter()
+            .map(|v| match v {
+                Value::Vector(v) => {
+                    if v.len() != mat1_first_el_len {
+                        return err!("Argument 1 to `mat-repmat` had uneven length rows.");
+                    }
+                    Ok(v)
+                }
+                _ => return err!("First arg to `mat-add` had non-vector elements."),
+            })
+            .collect::<Result<Vec<Vec<Value>>, RuntimeError>>()?;
+
+        let n_rows_mul = match v1 {
+            Value::Integer(i) => match usize::try_from(i) {
+                Ok(u) => u,
+                Err(_) => return err!("First arg to `mat-repmat` must be a positive integer."),
+            },
+            _ => return err!("First arg to `mat-repmat` must be an integer."),
+        };
+
+        let n_cols_mul: usize = match v2 {
+            Value::Integer(i) => match usize::try_from(i) {
+                Ok(u) => u,
+                Err(_) => return err!("Second arg to `mat-repmat` must be a positive integer."),
+            },
+            _ => return err!("Second arg to `mat-repmat` must be an integer."),
+        };
+
+        let n_rows = unwrapped_mat1.len();
+        let n_cols = mat1_first_el_len;
+
+        let mut matrix = Vec::with_capacity(n_rows*n_rows_mul);
+        for i in 0..(n_rows*n_rows_mul) {
+            let i = i % n_rows;
+            let mut row = Vec::with_capacity(n_cols*n_cols_mul);
+            for j in 0..n_cols*n_cols_mul {
+                let j = j % n_cols;
+                row.push(unwrapped_mat1[i][j].clone());
+            }
+            matrix.push(Value::Vector(row));
+        }
+
+        Ok(Value::Vector(matrix))
+    }
+
     fn matrix_multiply(&mut self, vals: Vec<Value>) -> EvalResult {
         if vals.len() != 2 {
-            return err!("`mat-multiply` must have exactly 2 arguments.");
+            return err!("`mat-mul` must have exactly 2 arguments.");
         }
 
         let mat1 = match &vals[0] {
             Value::Vector(v) => v,
-            _ => return err!("Argument 1 to `mat-multiply` must be a vector of vectors."),
+            _ => return err!("Argument 1 to `mat-mul` must be a vector of vectors."),
         };
 
         let mat2 = match &vals[1] {
             Value::Vector(v) => v,
-            _ => return err!("Argument 2 to `mat-multiply` must be a vector of vectors."),
+            _ => return err!("Argument 2 to `mat-mul` must be a vector of vectors."),
         };
 
         if mat1.len() < 1 {
-            return err!("The vector given to `mat-multiply` must have at least one element.");
+            return err!("The vector given to `mat-mul` must have at least one element.");
         }
 
         let mat1_first_el = match &mat1[0] {
             Value::Vector(v) => v,
-            _ => return err!("Argument to `mat-multiply` must be a vector of vectors."),
+            _ => return err!("Argument to `mat-mul` must be a vector of vectors."),
         };
 
         if mat1_first_el.len() < 1 {
-            return err!("All sub-vectors given to `mat-multiply` must have at least one element.");
+            return err!("All sub-vectors given to `mat-mul` must have at least one element.");
         }
 
         let mat2_first_el = match &mat2[0] {
             Value::Vector(v) => v,
-            _ => return err!("Argument to `mat-multiply` must be a vector of vectors."),
+            _ => return err!("Argument to `mat-mul` must be a vector of vectors."),
         };
 
         if mat2_first_el.len() < 1 {
-            return err!("All sub-vectors given to `mat-multiply` must have at least one element.");
+            return err!("All sub-vectors given to `mat-mul` must have at least one element.");
         }
 
         let unwrapped_mat1 = mat1
@@ -411,7 +485,7 @@ impl Interpreter {
             .map(|v| match v {
                 Value::Vector(v) => {
                     if v.len() != mat1_first_el.len() {
-                        return err!("First arg to `mat-multiply` had uneven length rows.");
+                        return err!("First arg to `mat-mul` had uneven length rows.");
                     }
                     assert_all_numeric_type("mat-multiply", v)?;
                     let v = v
@@ -424,7 +498,7 @@ impl Interpreter {
                         .collect::<Vec<f64>>();
                     Ok(v)
                 }
-                _ => return err!("First arg to `mat-multiply` had non-vector elements."),
+                _ => return err!("First arg to `mat-mul` had non-vector elements."),
             })
             .collect::<Result<Vec<Vec<f64>>, RuntimeError>>()?;
 
@@ -433,7 +507,7 @@ impl Interpreter {
             .map(|v| match v {
                 Value::Vector(v) => {
                     if v.len() != mat2_first_el.len() {
-                        return err!("Second arg to `mat-multiply` had uneven length rows.");
+                        return err!("Second arg to `mat-mul` had uneven length rows.");
                     }
                     assert_all_numeric_type("mat-multiply", v)?;
                     let v = v
@@ -446,7 +520,7 @@ impl Interpreter {
                         .collect::<Vec<f64>>();
                     Ok(v)
                 }
-                _ => return err!("Second arg to `mat-multiply` had non-vector elements."),
+                _ => return err!("Second arg to `mat-mul` had non-vector elements."),
             })
             .collect::<Result<Vec<Vec<f64>>, RuntimeError>>()?;
 
@@ -456,7 +530,7 @@ impl Interpreter {
         let mat2_ncols = mat2_first_el.len();
 
         if mat1_ncols != mat2_nrows {
-            return err!("`mat-multiply` needs matrices with matching inner dimensions.");
+            return err!("`mat-mul` needs matrices with matching inner dimensions.");
         }
 
         let shared_dim = mat1_ncols;
@@ -482,39 +556,39 @@ impl Interpreter {
 
     fn matrix_addition(&mut self, vals: Vec<Value>) -> EvalResult {
         if vals.len() != 2 {
-            return err!("`mat-multiply` must have exactly 2 arguments.");
+            return err!("`mat-add` must have exactly 2 arguments.");
         }
 
         let mat1 = match &vals[0] {
             Value::Vector(v) => v,
-            _ => return err!("Argument 1 to `mat-multiply` must be a vector of vectors."),
+            _ => return err!("Argument 1 to `mat-add` must be a vector of vectors."),
         };
 
         let mat2 = match &vals[1] {
             Value::Vector(v) => v,
-            _ => return err!("Argument 2 to `mat-multiply` must be a vector of vectors."),
+            _ => return err!("Argument 2 to `mat-add` must be a vector of vectors."),
         };
 
         if mat1.len() < 1 {
-            return err!("The vector given to `mat-multiply` must have at least one element.");
+            return err!("The vector given to `mat-add` must have at least one element.");
         }
 
         let mat1_first_el = match &mat1[0] {
             Value::Vector(v) => v,
-            _ => return err!("Argument to `mat-multiply` must be a vector of vectors."),
+            _ => return err!("Argument to `mat-add` must be a vector of vectors."),
         };
 
         if mat1_first_el.len() < 1 {
-            return err!("All sub-vectors given to `mat-multiply` must have at least one element.");
+            return err!("All sub-vectors given to `mat-add` must have at least one element.");
         }
 
         let mat2_first_el = match &mat2[0] {
             Value::Vector(v) => v,
-            _ => return err!("Argument to `mat-multiply` must be a vector of vectors."),
+            _ => return err!("Argument to `mat-add` must be a vector of vectors."),
         };
 
         if mat2_first_el.len() < 1 {
-            return err!("All sub-vectors given to `mat-multiply` must have at least one element.");
+            return err!("All sub-vectors given to `mat-add` must have at least one element.");
         }
 
         let unwrapped_mat1 = mat1
@@ -522,20 +596,19 @@ impl Interpreter {
             .map(|v| match v {
                 Value::Vector(v) => {
                     if v.len() != mat1_first_el.len() {
-                        return err!("First arg to `mat-multiply` had uneven length rows.");
+                        return err!("First arg to `mat-add` had uneven length rows.");
                     }
-                    assert_all_numeric_type("mat-multiply", v)?;
                     let v = v
                         .iter()
                         .map(|v| match v {
-                            Value::Float(f) => *f,
-                            Value::Integer(i) => *i as f64,
-                            _ => unreachable!(),
+                            Value::Float(f) => Ok(*f),
+                            Value::Integer(i) => Ok(*i as f64),
+                            _ => err!("Elements of matrix 1 in `mat-add` were not numeric."),
                         })
-                        .collect::<Vec<f64>>();
+                        .collect::<Result<Vec<f64>, RuntimeError>>()?;
                     Ok(v)
                 }
-                _ => return err!("First arg to `mat-multiply` had non-vector elements."),
+                _ => return err!("First arg to `mat-add` had non-vector elements."),
             })
             .collect::<Result<Vec<Vec<f64>>, RuntimeError>>()?;
 
@@ -544,20 +617,19 @@ impl Interpreter {
             .map(|v| match v {
                 Value::Vector(v) => {
                     if v.len() != mat2_first_el.len() {
-                        return err!("Second arg to `mat-multiply` had uneven length rows.");
+                        return err!("Second arg to `mat-add` had uneven length rows.");
                     }
-                    assert_all_numeric_type("mat-multiply", v)?;
                     let v = v
                         .iter()
                         .map(|v| match v {
-                            Value::Float(f) => *f,
-                            Value::Integer(i) => *i as f64,
-                            _ => unreachable!(),
+                            Value::Float(f) => Ok(*f),
+                            Value::Integer(i) => Ok(*i as f64),
+                            _ => err!("Elements of matrix 2 in `mat-add` were not numeric."),
                         })
-                        .collect::<Vec<f64>>();
+                        .collect::<Result<Vec<f64>, RuntimeError>>()?;
                     Ok(v)
                 }
-                _ => return err!("Second arg to `mat-multiply` had non-vector elements."),
+                _ => return err!("Second arg to `mat-add` had non-vector elements."),
             })
             .collect::<Result<Vec<Vec<f64>>, RuntimeError>>()?;
 
@@ -568,7 +640,9 @@ impl Interpreter {
 
         let compatible_dimensions =
             (mat1_nrows == 1 || mat2_nrows == 1 || mat2_nrows == mat2_nrows)
-                && (mat1_ncols == 1 || mat2_ncols == 1 || mat2_ncols == mat1_ncols);
+                && (mat1_ncols == 1 || mat2_ncols == 1 || mat2_ncols == mat1_ncols)
+                && ((mat1_ncols <= mat2_ncols && mat1_nrows <= mat2_nrows)
+                    || (mat2_ncols <= mat1_ncols && mat2_nrows <= mat1_nrows));
 
         if !compatible_dimensions {
             return err!("arguments to `mat-add` have incompatible dimensions.");
@@ -580,11 +654,11 @@ impl Interpreter {
         let mut sum_mat = Vec::with_capacity(n_rows);
         for i in 0..n_rows {
             let mut row = Vec::with_capacity(n_cols);
-            let m1i = if mat1_nrows > 1 { i } else { 1 };
-            let m2i = if mat2_nrows > 1 { i } else { 1 };
+            let m1i = if mat1_nrows > 1 { i } else { 0 };
+            let m2i = if mat2_nrows > 1 { i } else { 0 };
             for j in 0..n_cols {
-                let m1j = if mat1_ncols > 1 { j } else { 1 };
-                let m2j = if mat2_ncols > 1 { j } else { 1 };
+                let m1j = if mat1_ncols > 1 { j } else { 0 };
+                let m2j = if mat2_ncols > 1 { j } else { 0 };
                 row.push(Value::Float(
                     unwrapped_mat1[m1i][m1j] + unwrapped_mat2[m2i][m2j],
                 ));
@@ -593,6 +667,66 @@ impl Interpreter {
         }
 
         Ok(Value::Vector(sum_mat))
+    }
+
+    fn matrix_tanh(&mut self, vals: Vec<Value>) -> EvalResult {
+        if vals.len() != 1 {
+            return err!("`mat-tanh` must have exactly 1 argument.");
+        }
+
+        let mat1 = match &vals[0] {
+            Value::Vector(v) => v,
+            _ => return err!("Argument 1 to `mat-add` must be a vector of vectors."),
+        };
+
+        if mat1.len() < 1 {
+            return err!("The vector given to `mat-add` must have at least one element.");
+        }
+
+        let mat1_first_el = match &mat1[0] {
+            Value::Vector(v) => v,
+            _ => return err!("Argument to `mat-add` must be a vector of vectors."),
+        };
+
+        if mat1_first_el.len() < 1 {
+            return err!("All sub-vectors given to `mat-add` must have at least one element.");
+        }
+
+        let unwrapped_mat1 = mat1
+            .iter()
+            .map(|v| match v {
+                Value::Vector(v) => {
+                    if v.len() != mat1_first_el.len() {
+                        return err!("First arg to `mat-add` had uneven length rows.");
+                    }
+                    assert_all_numeric_type("mat-add", v)?;
+                    let v = v
+                        .iter()
+                        .map(|v| match v {
+                            Value::Float(f) => *f,
+                            Value::Integer(i) => *i as f64,
+                            _ => unreachable!(),
+                        })
+                        .collect::<Vec<f64>>();
+                    Ok(v)
+                }
+                _ => return err!("First arg to `mat-add` had non-vector elements."),
+            })
+            .collect::<Result<Vec<Vec<f64>>, RuntimeError>>()?;
+
+        let n_rows = unwrapped_mat1.len();
+        let n_cols = mat1_first_el.len();
+
+        let mut tanh_mat = Vec::with_capacity(n_rows);
+        for i in 0..n_rows {
+            let mut row = Vec::with_capacity(n_cols);
+            for j in 0..n_cols {
+                row.push(Value::Float(unwrapped_mat1[i][j].tanh()));
+            }
+            tanh_mat.push(Value::Vector(row));
+        }
+
+        Ok(Value::Vector(tanh_mat))
     }
 
     fn append(&mut self, mut vals: Vec<Value>) -> EvalResult {
