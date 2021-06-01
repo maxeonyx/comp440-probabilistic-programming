@@ -54,7 +54,7 @@ impl Interpreter {
             let Ident(name) = ident;
             let function = Function {
                 parameters: params,
-                body: body,
+                body,
             };
             self.functions.insert(name, Rc::new(function));
         }
@@ -75,11 +75,11 @@ impl Interpreter {
                 ))),
             },
             Expression::Let(Let { bindings, body }) => {
-                if bindings.len() < 1 {
+                if bindings.is_empty() {
                     return err!("Let must have at least one binding.");
                 }
 
-                if body.len() < 1 {
+                if body.is_empty() {
                     return err!("Let must have a body.");
                 }
 

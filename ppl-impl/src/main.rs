@@ -23,7 +23,8 @@ mod interpreter;
 
 use interpreter::Interpreter;
 
-lalrpop_mod!(pub grammar);
+
+lalrpop_mod!(#[allow(clippy::all)] pub grammar);
 
 #[derive(Clap)]
 #[clap(setting = AppSettings::ColoredHelp)]
@@ -104,9 +105,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 _ => err!("Program should only return numbers or vecs of numbers."),
             })
             .collect::<Result<Vec<ProgramResult>, RuntimeError>>()
-    };
+    }
 
-    let vals = vals.and_then(|vals| flatten_to_numeric_vec_only(vals));
+    let vals = vals.and_then(flatten_to_numeric_vec_only);
 
     let vals = match vals {
         Ok(v) => v,
@@ -116,12 +117,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    match opts.cmd {
-        Command::EvalOnce { .. } => {
-            println!("{:#?}", vals[0]);
+    if let  Command::EvalOnce { .. } = opts.cmd {
+         println!("{:#?}", vals[0]);
             return Ok(());
-        }
-        _ => {}
     }
 
     let data_json = serde_json::to_string(&vals)?;

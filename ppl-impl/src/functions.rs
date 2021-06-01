@@ -35,7 +35,7 @@ fn assert_all_numeric_type(fn_name: &str, vals: &[Value]) -> Result<ValueType, R
         }
     }
 
-    return Ok(all_t);
+    Ok(all_t)
 }
 
 impl Interpreter {
@@ -111,7 +111,7 @@ impl Interpreter {
                 self.scope.push(binding);
             }
 
-            let val = self.eval(&function.clone().body)?;
+            let val = self.eval(&function.body)?;
             self.scope.truncate(old_scope_count);
 
             return Ok(val);
@@ -221,7 +221,7 @@ impl Interpreter {
 
     fn vector(&mut self, vals: Vec<Value>) -> EvalResult {
         Ok(Value::Vector(
-            vals.iter().map(|v| v.clone()).collect::<Vec<_>>(),
+            vals.to_vec(),
         ))
     }
 
@@ -257,7 +257,7 @@ impl Interpreter {
             _ => return err!("Argument to `first` must be a vector."),
         };
 
-        if list.len() < 1 {
+        if list.is_empty() {
             return err!("Index out of bounds.");
         }
 
@@ -291,7 +291,7 @@ impl Interpreter {
             _ => return err!("Argument to `last` must be a vector."),
         };
 
-        if list.len() < 1 {
+        if list.is_empty() {
             return err!("Index out of bounds.");
         }
 
@@ -308,11 +308,11 @@ impl Interpreter {
             _ => return err!("Argument to 'rest' must be a vector."),
         };
 
-        if list.len() < 1 {
+        if list.is_empty() {
             return err!("Index out of bounds.");
         }
 
-        Ok(Value::Vector(list[1..].iter().cloned().collect()))
+        Ok(Value::Vector(list[1..].to_vec()))
     }
 
     fn matrix_transpose(&mut self, vals: Vec<Value>) -> EvalResult {
@@ -325,7 +325,7 @@ impl Interpreter {
             _ => return err!("Argument to `mat-transpose` must be a vector of vectors."),
         };
 
-        if list.len() < 1 {
+        if list.is_empty() {
             return err!("The vector given to `mat-transpose` must have at least one element.");
         }
 
@@ -334,7 +334,7 @@ impl Interpreter {
             _ => return err!("Argument to `mat-transpose` must be a vector of vectors."),
         };
 
-        if first_el.len() < 1 {
+        if first_el.is_empty() {
             return err!(
                 "All sub-vectors given to `mat-transpose` must have at least one element."
             );
@@ -381,7 +381,7 @@ impl Interpreter {
             _ => return err!("Argument 1 to `mat-repmat` must be a vector of vectors."),
         };
 
-        if mat1.len() < 1 {
+        if mat1.is_empty() {
             return err!("Argument 1 to `mat-repmat` must have at least one element.");
         }
 
@@ -455,7 +455,7 @@ impl Interpreter {
             _ => return err!("Argument 2 to `mat-mul` must be a vector of vectors."),
         };
 
-        if mat1.len() < 1 {
+        if mat1.is_empty() {
             return err!("The vector given to `mat-mul` must have at least one element.");
         }
 
@@ -464,7 +464,7 @@ impl Interpreter {
             _ => return err!("Argument to `mat-mul` must be a vector of vectors."),
         };
 
-        if mat1_first_el.len() < 1 {
+        if mat1_first_el.is_empty() {
             return err!("All sub-vectors given to `mat-mul` must have at least one element.");
         }
 
@@ -473,7 +473,7 @@ impl Interpreter {
             _ => return err!("Argument to `mat-mul` must be a vector of vectors."),
         };
 
-        if mat2_first_el.len() < 1 {
+        if mat2_first_el.is_empty() {
             return err!("All sub-vectors given to `mat-mul` must have at least one element.");
         }
 
@@ -566,7 +566,7 @@ impl Interpreter {
             _ => return err!("Argument 2 to `mat-add` must be a vector of vectors."),
         };
 
-        if mat1.len() < 1 {
+        if mat1.is_empty() {
             return err!("The vector given to `mat-add` must have at least one element.");
         }
 
@@ -575,7 +575,7 @@ impl Interpreter {
             _ => return err!("Argument to `mat-add` must be a vector of vectors."),
         };
 
-        if mat1_first_el.len() < 1 {
+        if mat1_first_el.is_empty() {
             return err!("All sub-vectors given to `mat-add` must have at least one element.");
         }
 
@@ -584,7 +584,7 @@ impl Interpreter {
             _ => return err!("Argument to `mat-add` must be a vector of vectors."),
         };
 
-        if mat2_first_el.len() < 1 {
+        if mat2_first_el.is_empty() {
             return err!("All sub-vectors given to `mat-add` must have at least one element.");
         }
 
@@ -636,8 +636,8 @@ impl Interpreter {
         let mat2_ncols = mat2_first_el.len();
 
         let compatible_dimensions =
-            (mat1_nrows == 1 || mat2_nrows == 1 || mat2_nrows == mat2_nrows)
-                && (mat1_ncols == 1 || mat2_ncols == 1 || mat2_ncols == mat1_ncols)
+            (mat1_nrows == 1 || mat2_nrows == 1 || mat1_nrows == mat2_nrows)
+                && (mat1_ncols == 1 || mat2_ncols == 1 || mat1_ncols == mat2_ncols)
                 && ((mat1_ncols <= mat2_ncols && mat1_nrows <= mat2_nrows)
                     || (mat2_ncols <= mat1_ncols && mat2_nrows <= mat1_nrows));
 
@@ -676,7 +676,7 @@ impl Interpreter {
             _ => return err!("Argument 1 to `mat-add` must be a vector of vectors."),
         };
 
-        if mat1.len() < 1 {
+        if mat1.is_empty() {
             return err!("The vector given to `mat-add` must have at least one element.");
         }
 
@@ -685,7 +685,7 @@ impl Interpreter {
             _ => return err!("Argument to `mat-add` must be a vector of vectors."),
         };
 
-        if mat1_first_el.len() < 1 {
+        if mat1_first_el.is_empty() {
             return err!("All sub-vectors given to `mat-add` must have at least one element.");
         }
 
@@ -715,10 +715,10 @@ impl Interpreter {
         let n_cols = mat1_first_el.len();
 
         let mut tanh_mat = Vec::with_capacity(n_rows);
-        for i in 0..n_rows {
+        for old_row in unwrapped_mat1 {
             let mut row = Vec::with_capacity(n_cols);
-            for j in 0..n_cols {
-                row.push(Value::Float(unwrapped_mat1[i][j].tanh()));
+            for old_val in old_row {
+                row.push(Value::Float(old_val.tanh()));
             }
             tanh_mat.push(Value::Vector(row));
         }
@@ -818,9 +818,7 @@ impl Interpreter {
             (Value::Float(a), Value::Float(b)) => {
                 Ok(Value::Boolean(compare(comparison_type, *a, *b)))
             }
-            (Value::Vector(_a), Value::Vector(_b)) => match comparison_type {
-                _ => unimplemented!("Vector comparison not implemented."),
-            },
+            (Value::Vector(_a), Value::Vector(_b)) => unimplemented!("Vector comparison not implemented."),
             _ => unimplemented!("Comparison for this type combination not implemented."),
         }
     }
