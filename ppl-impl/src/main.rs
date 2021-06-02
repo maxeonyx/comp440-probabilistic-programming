@@ -19,6 +19,7 @@ use lalrpop_util::lalrpop_mod;
 
 use types::{RuntimeError, Value};
 
+mod ancestral_sampler;
 mod interpreter;
 
 use interpreter::Interpreter;
@@ -47,6 +48,9 @@ enum Command {
     EvalOnce {
         file: PathBuf,
     },
+    AncestralSample {
+        file: PathBuf,
+    },
 }
 
 use serde::Serialize;
@@ -71,6 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::EvalOnce { file, .. } => file,
         Command::PriorOnly { file, .. } => file,
         Command::Infer { file, .. } => file,
+        Command::AncestralSample { file, ..} => file,
     };
 
     let file_stem = match file_name.file_stem() {
@@ -94,6 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::EvalOnce { .. } => interpreter.eval_program(program, 1),
         Command::PriorOnly { n_samples, .. } => interpreter.eval_program(program, n_samples),
         Command::Infer { .. } => unimplemented!("Inference not implemented yet."),
+        Command::AncestralSample { .. } => unimplemented!("Inference not implemented yet."),
     };
 
     fn flatten_to_numeric_vec_only(vals: Vec<Value>) -> Result<Vec<ProgramResult>, RuntimeError> {

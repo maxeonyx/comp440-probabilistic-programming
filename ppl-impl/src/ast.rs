@@ -49,4 +49,5 @@ pub enum Expression {
     Vector(Vec<Expression>),
     ForEach(ForEach),
     Loop(Loop),
+    Null,
 }
