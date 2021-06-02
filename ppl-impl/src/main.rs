@@ -1,6 +1,3 @@
-mod ast;
-mod types;
-
 macro_rules! err {
     ($fstr:literal $(, $e:expr)*) => {{
         use crate::types::RuntimeError;
@@ -10,9 +7,11 @@ macro_rules! err {
 
 type EvalResult = Result<Value, RuntimeError>;
 
+mod ast;
 mod functions;
+mod types;
 
-use std::{ffi::OsStr, path::PathBuf, str::FromStr};
+use std::{ffi::OsStr, path::PathBuf};
 
 use ast::Program;
 use clap::{AppSettings, Clap};
@@ -110,13 +109,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(match opts.cmd {
         Command::EvalOnce { file } => eval_once(program, file),
-        Command::PriorOnly { n_samples, file } => infer(program, file, PriorOnly::new()),
-        Command::Infer { alg, file } => {
-            let mut alg = match alg {
+        Command::PriorOnly { n_samples, file } => infer(program, file, n_samples, PriorOnly::new()),
+        Command::Infer {
+            alg,
+            file,
+            n_samples,
+        } => {
+            let alg = match alg {
                 Alg::LikelihoodWeighting => inference::LikelihoodWeighting::new(),
             };
 
-            infer(program, file, alg)
+            infer(program, file, n_samples, alg)
         }
         Command::AncestralSample { .. } => unimplemented!("Inference not implemented yet."),
     }?)
@@ -143,7 +146,7 @@ fn infer<T: InferenceAlg>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut interpreter = Interpreter::new(&mut alg);
 
-    match interpreter.eval_program(program, 1) {
+    match interpreter.eval_program(program, n_samples) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{:?}", e);
@@ -151,7 +154,7 @@ fn infer<T: InferenceAlg>(
         }
     };
 
-    let data = match alg.finalize_and_write() {
+    let data = match alg.finalize_and_make_dataset() {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{:?}", e);
@@ -168,7 +171,7 @@ fn infer<T: InferenceAlg>(
     std::fs::create_dir_all(out_dir)?;
     std::fs::write(out_file, data_json)?;
 
-    todo!()
+    Ok(())
 }
 
 fn eval_once(program: Program, _file: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
@@ -183,7 +186,7 @@ fn eval_once(program: Program, _file: PathBuf) -> Result<(), Box<dyn std::error:
         }
     };
 
-    let data = match alg.finalize_and_write() {
+    let data = match alg.finalize_and_make_dataset() {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{:?}", e);

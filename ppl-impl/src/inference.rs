@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use crate::{
     types::{Distribution, RuntimeError, Value},
     DataFile, IntOrFloat, ProgramResult,
@@ -21,7 +19,7 @@ pub trait InferenceAlg {
     fn observe(&mut self, dist: &dyn Distribution, val: Value) -> Result<Value, RuntimeError>;
 
     fn finish_one_evaluation(&mut self, result: Value);
-    fn finalize_and_write(&self) -> Result<DataFile, RuntimeError>;
+    fn finalize_and_make_dataset(self) -> Result<DataFile, RuntimeError>;
 }
 
 pub struct PriorOnly {
@@ -41,7 +39,7 @@ impl InferenceAlg for PriorOnly {
         dist.sample()
     }
 
-    fn observe(&mut self, dist: &dyn Distribution, val: Value) -> Result<Value, RuntimeError> {
+    fn observe(&mut self, dist: &dyn Distribution, _val: Value) -> Result<Value, RuntimeError> {
         dist.sample()
     }
 
@@ -49,7 +47,7 @@ impl InferenceAlg for PriorOnly {
         self.results.push(result);
     }
 
-    fn finalize_and_write(&self) -> Result<DataFile, RuntimeError> {
+    fn finalize_and_make_dataset(self) -> Result<DataFile, RuntimeError> {
         let vals = flatten_to_numeric_vec_only(self.results)?;
 
         Ok(DataFile {
@@ -92,7 +90,7 @@ impl InferenceAlg for LikelihoodWeighting {
         self.weights.push(log_w);
     }
 
-    fn finalize_and_write(&self) -> Result<DataFile, RuntimeError> {
+    fn finalize_and_make_dataset(self) -> Result<DataFile, RuntimeError> {
         let vals = flatten_to_numeric_vec_only(self.results.to_vec())?;
         Ok(DataFile {
             has_weights: true,

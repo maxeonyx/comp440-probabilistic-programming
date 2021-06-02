@@ -1,12 +1,10 @@
-use std::{convert::TryFrom, pin::Pin, rc::Rc, usize};
-
-use probability::distribution::Continuous;
+use std::{convert::TryFrom, rc::Rc, usize};
 
 use crate::{
     distributions::{Discrete, Normal},
     inference::InferenceAlg,
     interpreter::{Binding, Interpreter},
-    types::{Distribution, RuntimeError, Value, ValueType},
+    types::{RuntimeError, Value, ValueImpls, ValueType},
     EvalResult,
 };
 
@@ -669,52 +667,37 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
     }
 
     fn matrix_tanh(&mut self, vals: Vec<Value>) -> EvalResult {
-        if vals.len() != 1 {
-            return err!("`mat-tanh` must have exactly 1 argument.");
-        }
-
-        let mat1 = match &vals[0] {
-            Value::Vector(v) => v,
-            _ => return err!("Argument 1 to `mat-add` must be a vector of vectors."),
-        };
+        let mat1 = vals
+            .try_into_one("`mat-tanh` must have exactly 1 argument.")?
+            .try_into_vector("Argument to `mat-tanh` must be a vector.")?;
 
         if mat1.is_empty() {
             return err!("The vector given to `mat-add` must have at least one element.");
         }
 
-        let mat1_first_el = match &mat1[0] {
-            Value::Vector(v) => v,
+        let n_rows = mat1.len();
+
+        let n_cols = match &mat1[0] {
+            Value::Vector(v) => v.len(),
             _ => return err!("Argument to `mat-add` must be a vector of vectors."),
         };
 
-        if mat1_first_el.is_empty() {
+        if n_cols < 1 {
             return err!("All sub-vectors given to `mat-add` must have at least one element.");
         }
 
         let unwrapped_mat1 = mat1
-            .iter()
+            .into_iter()
             .map(|v| match v {
                 Value::Vector(v) => {
-                    if v.len() != mat1_first_el.len() {
+                    if v.len() != n_cols {
                         return err!("First arg to `mat-add` had uneven length rows.");
                     }
-                    assert_all_numeric_type("mat-add", v)?;
-                    let v = v
-                        .iter()
-                        .map(|v| match v {
-                            Value::Float(f) => *f,
-                            Value::Integer(i) => *i as f64,
-                            _ => unreachable!(),
-                        })
-                        .collect::<Vec<f64>>();
-                    Ok(v)
+                    v.try_into_numeric("First arg to `mat-add` contains non-numeric values")
                 }
                 _ => return err!("First arg to `mat-add` had non-vector elements."),
             })
             .collect::<Result<Vec<Vec<f64>>, RuntimeError>>()?;
-
-        let n_rows = unwrapped_mat1.len();
-        let n_cols = mat1_first_el.len();
 
         let mut tanh_mat = Vec::with_capacity(n_rows);
         for old_row in unwrapped_mat1 {
@@ -844,7 +827,6 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             _ => unreachable!(),
         };
 
-        let name = format!("normal({:?})", vals);
         let distribution = Value::Distribution(Rc::new(Normal { mu, sigma }));
         Ok(distribution)
     }
@@ -858,7 +840,7 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             _ => return err!("`discrete` expects exactly 1 argument, a vector of numbers."),
         };
         assert_all_numeric_type("discrete", &vals)?;
-        let name = format!("discrete({:?})", &vals);
+
         let weights = vals
             .into_iter()
             .map(|v| match v {
