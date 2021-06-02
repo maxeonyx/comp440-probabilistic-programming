@@ -1,17 +1,9 @@
 use std::{fmt, rc::Rc};
 
-#[derive(Clone)]
-pub struct Distribution {
-    pub sample: Rc<dyn Fn() -> Result<Value, RuntimeError>>,
-    pub name: String,
-}
-
-impl std::fmt::Debug for Distribution {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Distribution")
-            .field("name", &self.name)
-            .finish()
-    }
+pub trait Distribution: std::fmt::Debug {
+    fn sample(&self) -> Result<Value, RuntimeError>;
+    fn pdf(&self, val: Value) -> Result<f64, RuntimeError>;
+    fn name(&self) -> &'static str;
 }
 
 #[derive(PartialEq, Debug)]
@@ -35,7 +27,7 @@ pub enum Value {
     Float(f64),
     Integer(i64),
     Boolean(bool),
-    Distribution(Distribution),
+    Distribution(Rc<dyn Distribution>),
     Vector(Vec<Value>),
     Null,
 }

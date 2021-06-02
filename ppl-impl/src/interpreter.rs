@@ -1,7 +1,4 @@
-use crate::{
-    ast::{self, Expression, Ident, Let, Program},
-    types::{RuntimeError, Value},
-};
+use crate::{ast::{self, Expression, Ident, Let, Program}, inference::InferenceAlg, types::{RuntimeError, Value}};
 
 use std::{collections::HashMap, convert::TryFrom, rc::Rc};
 
@@ -15,18 +12,20 @@ pub struct Function {
     pub body: Expression,
 }
 
-pub(crate) struct Interpreter {
+pub(crate) struct Interpreter<'alg, T> where T: InferenceAlg {
     // TODO some mutable state for the observe side effects.
     // observe_state: u64,
     pub scope: Vec<Binding>,
     pub functions: HashMap<String, Rc<Function>>,
+    pub inference_alg: &'alg mut T,
 }
 
-impl Interpreter {
-    pub fn new() -> Self {
+impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
+    pub fn new(inference_alg: &'alg mut T) -> Self {
         Interpreter {
             functions: HashMap::new(),
             scope: Vec::new(),
+            inference_alg,
         }
     }
 
@@ -44,7 +43,7 @@ impl Interpreter {
         &mut self,
         program: Program,
         n_samples: usize,
-    ) -> Result<Vec<Value>, RuntimeError> {
+    ) -> Result<(), RuntimeError> {
         for defn in program.definitions {
             let ast::Definition {
                 ident,
@@ -61,8 +60,12 @@ impl Interpreter {
 
         let expression = program.expression;
         (0..n_samples)
-            .map(|_i| self.eval(&expression))
-            .collect::<Result<Vec<Value>, RuntimeError>>()
+            .map(|_i| {
+                let val = self.eval(&expression)?;
+                self.inference_alg.finish_one_evaluation(val);
+                Ok(())
+            })
+            .collect::<Result<(), RuntimeError>>()
     }
 
     pub fn eval(&mut self, expr: &Expression) -> Result<Value, RuntimeError> {
@@ -109,7 +112,7 @@ impl Interpreter {
             Expression::Sample(expr) => {
                 let val = self.eval(expr)?;
                 match val {
-                    Value::Distribution(d) => (d.sample)(),
+                    Value::Distribution(d) => d.sample(),
                     _ => Err(RuntimeError::new(
                         "Sample must only be called on a Distribution value.".to_owned(),
                     )),
@@ -122,9 +125,18 @@ impl Interpreter {
             // Expression::Division(left, right) => {}
             // Expression::Subtraction(left, right) => {}
             // Expression::Negation(expr) => {}
-            Expression::Observe(_dist, _val) => {
+            Expression::Observe(dist, val) => {
+                let dist = self.eval(dist)?;
+                let dist = match dist {
+                    Value::Distribution(d) => d,
+                    _ => return err!("First expression in `observe` must evaluate to a distribution."),
+                };
+                let val = self.eval(val)?;
+
+                let val = self.inference_alg.observe(dist.as_ref(), val)?;
+
                 // observe does nothing for now
-                Ok(Value::Null)
+                Ok(val)
             }
             Expression::ForEach(l) => {
                 let ast::ForEach {

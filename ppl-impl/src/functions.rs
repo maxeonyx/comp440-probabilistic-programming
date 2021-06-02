@@ -1,10 +1,8 @@
-use std::{convert::TryFrom, rc::Rc, usize};
+use std::{convert::TryFrom, pin::Pin, rc::Rc, usize};
 
-use crate::{
-    interpreter::{Binding, Interpreter},
-    types::{Distribution, RuntimeError, Value, ValueType},
-    EvalResult,
-};
+use probability::distribution::Continuous;
+
+use crate::{EvalResult, distributions::{Discrete, Normal}, inference::InferenceAlg, interpreter::{Binding, Interpreter}, types::{Distribution, RuntimeError, Value, ValueType}};
 
 enum ComparisonType {
     Less,
@@ -38,10 +36,10 @@ fn assert_all_numeric_type(fn_name: &str, vals: &[Value]) -> Result<ValueType, R
     Ok(all_t)
 }
 
-impl Interpreter {
-    pub fn dispatch_function(
+impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
+    pub fn dispatch_function<'a>(
         &mut self,
-        name: &str,
+        name: &'a str,
         vals: Vec<Value>,
     ) -> Result<Value, RuntimeError> {
         // built-insd
@@ -841,19 +839,10 @@ impl Interpreter {
         };
 
         let name = format!("normal({:?})", vals);
-        let distribution = Value::Distribution(Distribution {
-            sample: Rc::new(move || {
-                use rand::prelude::*;
-                use rand_distr::Normal;
-                let distr = match Normal::new(mu, sigma) {
-                    Ok(dist) => dist,
-                    Err(_) => return err!("Error creating discrete distribution."),
-                };
-                let mut rng = rand::thread_rng();
-                Ok(Value::Float(rng.sample::<f64, _>(distr)))
-            }),
-            name,
-        });
+        let distribution = Value::Distribution(Rc::new(Normal {
+            mu,
+            sigma,
+        }));
         Ok(distribution)
     }
 
@@ -875,20 +864,9 @@ impl Interpreter {
                 _ => unreachable!(),
             })
             .collect::<Vec<f64>>();
-        let distribution = Value::Distribution(Distribution {
-            sample: Rc::new(move || {
-                use rand::prelude::*;
-                use rand_distr::WeightedIndex;
-                let distr = match WeightedIndex::new(&weights) {
-                    Ok(w) => w,
-                    Err(_) => return err!("Error creating `discrete` distribution."),
-                };
-                let mut rng = rand::thread_rng();
-                let val = rng.sample::<usize, _>(distr);
-                Ok(Value::Integer(val as i64))
-            }),
-            name,
-        });
+        let distribution = Value::Distribution(Rc::new(Discrete {
+            weights,
+        }));
         Ok(distribution)
     }
 }
