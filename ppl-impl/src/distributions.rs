@@ -15,11 +15,10 @@ impl Distribution for Normal {
         };
         let mut rng = rand::thread_rng();
         Ok(Value::Float(rng.sample::<f64, _>(distr)))
-        
     }
 
     fn pdf(&self, val: Value) -> Result<f64, RuntimeError> {
-        use probability::distribution::{Gaussian, Continuous};
+        use probability::distribution::{Continuous, Gaussian};
         let d = Gaussian::new(self.mu, self.sigma);
 
         let val = match val {
@@ -34,7 +33,6 @@ impl Distribution for Normal {
     fn name(&self) -> &'static str {
         "normal"
     }
-    
 }
 
 impl std::fmt::Debug for Normal {
@@ -75,7 +73,6 @@ impl Distribution for Discrete {
     fn name(&self) -> &'static str {
         "discrete"
     }
-    
 }
 
 impl std::fmt::Debug for Discrete {

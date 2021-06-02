@@ -1,4 +1,8 @@
-use crate::{ast::{self, Expression, Ident, Let, Program}, inference::InferenceAlg, types::{RuntimeError, Value}};
+use crate::{
+    ast::{self, Expression, Ident, Let, Program},
+    inference::InferenceAlg,
+    types::{RuntimeError, Value},
+};
 
 use std::{collections::HashMap, convert::TryFrom, rc::Rc};
 
@@ -12,7 +16,10 @@ pub struct Function {
     pub body: Expression,
 }
 
-pub(crate) struct Interpreter<'alg, T> where T: InferenceAlg {
+pub(crate) struct Interpreter<'alg, T>
+where
+    T: InferenceAlg,
+{
     // TODO some mutable state for the observe side effects.
     // observe_state: u64,
     pub scope: Vec<Binding>,
@@ -39,11 +46,7 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
         None
     }
 
-    pub fn eval_program(
-        &mut self,
-        program: Program,
-        n_samples: usize,
-    ) -> Result<(), RuntimeError> {
+    pub fn eval_program(&mut self, program: Program, n_samples: usize) -> Result<(), RuntimeError> {
         for defn in program.definitions {
             let ast::Definition {
                 ident,
@@ -129,7 +132,11 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
                 let dist = self.eval(dist)?;
                 let dist = match dist {
                     Value::Distribution(d) => d,
-                    _ => return err!("First expression in `observe` must evaluate to a distribution."),
+                    _ => {
+                        return err!(
+                            "First expression in `observe` must evaluate to a distribution."
+                        )
+                    }
                 };
                 let val = self.eval(val)?;
 

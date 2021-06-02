@@ -2,7 +2,13 @@ use std::{convert::TryFrom, pin::Pin, rc::Rc, usize};
 
 use probability::distribution::Continuous;
 
-use crate::{EvalResult, distributions::{Discrete, Normal}, inference::InferenceAlg, interpreter::{Binding, Interpreter}, types::{Distribution, RuntimeError, Value, ValueType}};
+use crate::{
+    distributions::{Discrete, Normal},
+    inference::InferenceAlg,
+    interpreter::{Binding, Interpreter},
+    types::{Distribution, RuntimeError, Value, ValueType},
+    EvalResult,
+};
 
 enum ComparisonType {
     Less,
@@ -218,9 +224,7 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
     }
 
     fn vector(&mut self, vals: Vec<Value>) -> EvalResult {
-        Ok(Value::Vector(
-            vals.to_vec(),
-        ))
+        Ok(Value::Vector(vals.to_vec()))
     }
 
     fn get(&mut self, vals: Vec<Value>) -> EvalResult {
@@ -816,7 +820,9 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             (Value::Float(a), Value::Float(b)) => {
                 Ok(Value::Boolean(compare(comparison_type, *a, *b)))
             }
-            (Value::Vector(_a), Value::Vector(_b)) => unimplemented!("Vector comparison not implemented."),
+            (Value::Vector(_a), Value::Vector(_b)) => {
+                unimplemented!("Vector comparison not implemented.")
+            }
             _ => unimplemented!("Comparison for this type combination not implemented."),
         }
     }
@@ -839,10 +845,7 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
         };
 
         let name = format!("normal({:?})", vals);
-        let distribution = Value::Distribution(Rc::new(Normal {
-            mu,
-            sigma,
-        }));
+        let distribution = Value::Distribution(Rc::new(Normal { mu, sigma }));
         Ok(distribution)
     }
 
@@ -864,9 +867,7 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
                 _ => unreachable!(),
             })
             .collect::<Vec<f64>>();
-        let distribution = Value::Distribution(Rc::new(Discrete {
-            weights,
-        }));
+        let distribution = Value::Distribution(Rc::new(Discrete { weights }));
         Ok(distribution)
     }
 }

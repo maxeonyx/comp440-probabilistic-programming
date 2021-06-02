@@ -1,6 +1,9 @@
 use std::error::Error;
 
-use crate::{DataFile, IntOrFloat, ProgramResult, types::{Distribution, RuntimeError, Value}};
+use crate::{
+    types::{Distribution, RuntimeError, Value},
+    DataFile, IntOrFloat, ProgramResult,
+};
 
 fn flatten_to_numeric_vec_only(vals: Vec<Value>) -> Result<Vec<ProgramResult>, RuntimeError> {
     vals.into_iter()
@@ -48,7 +51,7 @@ impl InferenceAlg for PriorOnly {
 
     fn finalize_and_write(&self) -> Result<DataFile, RuntimeError> {
         let vals = flatten_to_numeric_vec_only(self.results)?;
- 
+
         Ok(DataFile {
             has_weights: false,
             data: vals,
@@ -78,7 +81,6 @@ impl InferenceAlg for LikelihoodWeighting {
     }
 
     fn observe(&mut self, dist: &dyn Distribution, val: Value) -> Result<Value, RuntimeError> {
-
         self.log_w += dist.pdf(val.clone())?.ln();
 
         Ok(val)
@@ -90,12 +92,17 @@ impl InferenceAlg for LikelihoodWeighting {
         self.weights.push(log_w);
     }
 
-    fn finalize_and_write(&self)  ->  Result<DataFile, RuntimeError> {
+    fn finalize_and_write(&self) -> Result<DataFile, RuntimeError> {
         let vals = flatten_to_numeric_vec_only(self.results.to_vec())?;
         Ok(DataFile {
             has_weights: true,
-            data: vals.into_iter().zip(self.weights.iter()).map(|(val, weight)| ProgramResult::Many(vec![val, ProgramResult::One(IntOrFloat::Float(*weight))])).collect()
+            data: vals
+                .into_iter()
+                .zip(self.weights.iter())
+                .map(|(val, weight)| {
+                    ProgramResult::Many(vec![val, ProgramResult::One(IntOrFloat::Float(*weight))])
+                })
+                .collect(),
         })
-        
     }
 }

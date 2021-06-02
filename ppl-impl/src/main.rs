@@ -22,12 +22,11 @@ use types::{RuntimeError, Value};
 
 #[allow(unused)]
 mod ancestral_sampler;
-mod interpreter;
-mod inference;
 mod distributions;
+mod inference;
+mod interpreter;
 
 use interpreter::Interpreter;
-
 
 lalrpop_mod!(#[allow(clippy::all)] pub grammar);
 
@@ -96,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file_name = file_name(&opts);
     let _file_stem = match file_stem(file_name) {
         Some(s) => s,
-        None => { 
+        None => {
             eprintln!("Filename is not valid.");
             return Ok(());
         }
@@ -111,20 +110,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(match opts.cmd {
         Command::EvalOnce { file } => eval_once(program, file),
-        Command::PriorOnly { n_samples, file } => {
-            infer(program, file, PriorOnly::new())
-        }
+        Command::PriorOnly { n_samples, file } => infer(program, file, PriorOnly::new()),
         Command::Infer { alg, file } => {
-
             let mut alg = match alg {
                 Alg::LikelihoodWeighting => inference::LikelihoodWeighting::new(),
             };
-            
+
             infer(program, file, alg)
-        },
+        }
         Command::AncestralSample { .. } => unimplemented!("Inference not implemented yet."),
     }?)
-
 }
 
 fn file_name(opts: &Opts) -> &PathBuf {
@@ -132,7 +127,7 @@ fn file_name(opts: &Opts) -> &PathBuf {
         Command::EvalOnce { file, .. } => file,
         Command::PriorOnly { file, .. } => file,
         Command::Infer { file, .. } => file,
-        Command::AncestralSample { file, ..} => file,
+        Command::AncestralSample { file, .. } => file,
     }
 }
 
@@ -140,8 +135,12 @@ fn file_stem(file_name: &PathBuf) -> Option<&OsStr> {
     file_name.file_stem()
 }
 
-fn infer<T: InferenceAlg>(program: Program, file: PathBuf, n_samples: usize, mut alg: T) -> Result<(), Box<dyn std::error::Error>> {
-
+fn infer<T: InferenceAlg>(
+    program: Program,
+    file: PathBuf,
+    n_samples: usize,
+    mut alg: T,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut interpreter = Interpreter::new(&mut alg);
 
     match interpreter.eval_program(program, 1) {
@@ -151,7 +150,7 @@ fn infer<T: InferenceAlg>(program: Program, file: PathBuf, n_samples: usize, mut
             return Ok(());
         }
     };
-    
+
     let data = match alg.finalize_and_write() {
         Ok(v) => v,
         Err(e) => {
@@ -173,7 +172,6 @@ fn infer<T: InferenceAlg>(program: Program, file: PathBuf, n_samples: usize, mut
 }
 
 fn eval_once(program: Program, _file: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-
     let mut alg = PriorOnly::new();
     let mut interpreter = Interpreter::new(&mut alg);
 
@@ -184,7 +182,7 @@ fn eval_once(program: Program, _file: PathBuf) -> Result<(), Box<dyn std::error:
             return Ok(());
         }
     };
-    
+
     let data = match alg.finalize_and_write() {
         Ok(v) => v,
         Err(e) => {
