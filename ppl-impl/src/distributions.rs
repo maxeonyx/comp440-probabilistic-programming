@@ -64,7 +64,7 @@ impl Distribution for Discrete {
 
         let val = match val {
             Value::Integer(v) if v >= 0 => v as usize,
-            _ => return err!("Normal distribution can only eval density of a positive integer."),
+            _ => return err!("Discrete distribution can only eval density of a positive integer."),
         };
 
         Ok(d.mass(val))
@@ -76,6 +76,79 @@ impl Distribution for Discrete {
 }
 
 impl std::fmt::Debug for Discrete {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(...)", self.name())
+    }
+}
+
+pub struct Gamma {
+    pub alpha: f64,
+    pub beta: f64,
+}
+
+impl Distribution for Gamma {
+    fn sample(&self) -> Result<Value, RuntimeError> {
+        use rand::prelude::*;
+        use rand_distr::Gamma;
+        let distr = match Gamma::new(self.alpha, self.beta) {
+            Ok(w) => w,
+            Err(_) => return err!("Error creating `gamma` distribution."),
+        };
+        let mut rng = rand::thread_rng();
+        let val = rng.sample(distr);
+        Ok(Value::Float(val))
+    }
+
+    fn pdf(&self, val: Value) -> Result<f64, RuntimeError> {
+        use probability::distribution::{Continuous, Gamma};
+        let d = Gamma::new(self.alpha, self.beta);
+
+        let val = val.try_into_numeric(
+            "`gamma` can only evaluate the density of a floating point number.",
+        )?;
+        Ok(d.density(val))
+    }
+
+    fn name(&self) -> &'static str {
+        "gamma"
+    }
+}
+
+impl std::fmt::Debug for Gamma {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(...)", self.name())
+    }
+}
+
+pub struct Dirichlet {
+    pub parameters: Vec<f64>,
+}
+
+impl Distribution for Dirichlet {
+    fn sample(&self) -> Result<Value, RuntimeError> {
+        use rand::prelude::*;
+        use rand_distr::Dirichlet;
+        let distr = match Dirichlet::new(&self.parameters) {
+            Ok(w) => w,
+            Err(_) => return err!("Error creating `gamma` distribution."),
+        };
+        let mut rng = rand::thread_rng();
+        let vals = rng.sample(distr);
+        Ok(Value::Vector(
+            vals.into_iter().map(|x| Value::Float(x)).collect(),
+        ))
+    }
+
+    fn pdf(&self, vals: Value) -> Result<f64, RuntimeError> {
+        unimplemented!("Evaluating the density of `dirichlet` is not implemented.")
+    }
+
+    fn name(&self) -> &'static str {
+        "dirichlet"
+    }
+}
+
+impl std::fmt::Debug for Dirichlet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(...)", self.name())
     }

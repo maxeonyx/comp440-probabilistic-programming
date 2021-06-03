@@ -1,7 +1,7 @@
 use std::{convert::TryFrom, rc::Rc, usize};
 
 use crate::{
-    distributions::{Discrete, Normal},
+    distributions::{Dirichlet, Discrete, Gamma, Normal},
     inference::InferenceAlg,
     interpreter::{Binding, Interpreter},
     types::{RuntimeError, Value, ValueImpls, ValueType},
@@ -83,6 +83,8 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             "discrete" => return self.discrete(vals),
 
             "normal" => return self.normal(vals),
+            "gamma" => return self.gamma(vals),
+            "dirichlet" => return self.dirichlet(vals),
             // "beta" => return self.beta(vals),
             // "poisson" => return self.poisson(vals),
             _ => {}
@@ -810,46 +812,37 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
         }
     }
 
-    fn normal(&mut self, mut vals: Vec<Value>) -> EvalResult {
-        if vals.len() != 2 {
-            return err!("Normal expects exactly two arguments.");
-        }
-        assert_all_numeric_type("normal", &vals)?;
-        let (sigma, mu) = (vals.pop().unwrap(), vals.pop().unwrap());
-        let mu = match mu {
-            Value::Float(v) => v,
-            Value::Integer(v) => v as f64,
-            _ => unreachable!(),
-        };
-        let sigma = match sigma {
-            Value::Float(v) => v,
-            Value::Integer(v) => v as f64,
-            _ => unreachable!(),
-        };
-
+    fn normal(&mut self, vals: Vec<Value>) -> EvalResult {
+        let (sigma, mu) =
+            vals.try_into_two_numeric("`normal` expects exactly two numeric arguments.")?;
         let distribution = Value::Distribution(Rc::new(Normal { mu, sigma }));
         Ok(distribution)
     }
 
-    fn discrete(&mut self, mut vals: Vec<Value>) -> EvalResult {
-        if vals.len() != 1 {
-            return err!("`discrete` expects exactly 1 argument, a vector of numbers.");
-        }
-        let vals = match vals.pop().unwrap() {
-            Value::Vector(v) => v,
-            _ => return err!("`discrete` expects exactly 1 argument, a vector of numbers."),
-        };
-        assert_all_numeric_type("discrete", &vals)?;
-
-        let weights = vals
-            .into_iter()
-            .map(|v| match v {
-                Value::Float(f) => f,
-                Value::Integer(i) => i as f64,
-                _ => unreachable!(),
-            })
-            .collect::<Vec<f64>>();
+    fn discrete(&mut self, weights: Vec<Value>) -> EvalResult {
+        let message = "`discrete` expects a single numeric vector argument.";
+        let weights = weights
+            .try_into_one(message)?
+            .try_into_vector(message)?
+            .try_into_numeric(message)?;
         let distribution = Value::Distribution(Rc::new(Discrete { weights }));
+        Ok(distribution)
+    }
+
+    fn gamma(&mut self, vals: Vec<Value>) -> EvalResult {
+        let (alpha, beta) =
+            vals.try_into_two_numeric("`gamma` expects exactly two numeric arguments.")?;
+        let distribution = Value::Distribution(Rc::new(Gamma { alpha, beta }));
+        Ok(distribution)
+    }
+
+    fn dirichlet(&mut self, parameters: Vec<Value>) -> EvalResult {
+        let message = "`dirichlet` expects a single numeric vector argument.";
+        let parameters = parameters
+            .try_into_one(message)?
+            .try_into_vector(message)?
+            .try_into_numeric(message)?;
+        let distribution = Value::Distribution(Rc::new(Dirichlet { parameters }));
         Ok(distribution)
     }
 }

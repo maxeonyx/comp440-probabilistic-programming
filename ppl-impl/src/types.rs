@@ -88,6 +88,9 @@ impl Value {
 pub trait ValueImpls {
     fn try_into_numeric(self, message: &str) -> Result<Vec<f64>, RuntimeError>;
     fn try_into_one(self, message: &str) -> Result<Value, RuntimeError>;
+    fn try_into_one_numeric(self, message: &str) -> Result<f64, RuntimeError>;
+    fn try_into_two(self, message: &str) -> Result<(Value, Value), RuntimeError>;
+    fn try_into_two_numeric(self, message: &str) -> Result<(f64, f64), RuntimeError>;
 }
 
 impl ValueImpls for Vec<Value> {
@@ -106,6 +109,32 @@ impl ValueImpls for Vec<Value> {
             return err!("{}", message.to_owned());
         }
         Ok(self.pop().unwrap())
+    }
+
+    fn try_into_one_numeric(mut self, message: &str) -> Result<f64, RuntimeError> {
+        if self.len() != 1 {
+            return err!("{}", message.to_owned());
+        }
+        Ok(self.pop().unwrap().try_into_numeric(message)?)
+    }
+
+    fn try_into_two(mut self, message: &str) -> Result<(Value, Value), RuntimeError> {
+        if self.len() != 2 {
+            return err!("{}", message.to_owned());
+        }
+        let (b, a) = (self.pop().unwrap(), self.pop().unwrap());
+        Ok((a, b))
+    }
+
+    fn try_into_two_numeric(mut self, message: &str) -> Result<(f64, f64), RuntimeError> {
+        if self.len() != 2 {
+            return err!("{}", message.to_owned());
+        }
+        let (b, a) = (
+            self.pop().unwrap().try_into_numeric(message)?,
+            self.pop().unwrap().try_into_numeric(message)?,
+        );
+        Ok((a, b))
     }
 }
 
