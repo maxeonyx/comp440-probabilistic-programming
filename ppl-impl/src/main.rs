@@ -40,6 +40,10 @@ struct Opts {
 #[derive(Clap, PartialEq, Debug)]
 enum Alg {
     LikelihoodWeighting,
+    SingleSiteMetropolis {
+        #[clap(short, long, default_value = "20")]
+        skip: usize,
+    },
 }
 
 #[derive(Clap)]
@@ -53,7 +57,7 @@ enum Command {
     Infer {
         #[clap(short, long, default_value = "10000")]
         n_samples: usize,
-        #[clap(arg_enum, short, long)]
+        #[clap(subcommand)]
         alg: Alg,
         file: PathBuf,
     },
@@ -67,7 +71,9 @@ enum Command {
 
 use serde::Serialize;
 
-use crate::inference::{InferenceAlg, prior_only::PriorOnly};
+use crate::inference::{
+    prior_only::PriorOnly, single_site_metropolis::SingleSiteMetropolis, InferenceAlg,
+};
 
 #[derive(Debug, Serialize)]
 pub struct DataFile {
@@ -115,13 +121,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             alg,
             file,
             n_samples,
-        } => {
-            let alg = match alg {
-                Alg::LikelihoodWeighting => LikelihoodWeighting::new(),
-            };
-
-            infer(program, file, n_samples, alg)
-        }
+        } => match alg {
+            Alg::LikelihoodWeighting => infer(program, file, n_samples, LikelihoodWeighting::new()),
+            Alg::SingleSiteMetropolis { skip } => {
+                infer(program, file, n_samples, SingleSiteMetropolis::new(skip))
+            }
+        },
         Command::AncestralSample { .. } => unimplemented!("Inference not implemented yet."),
     }?)
 }

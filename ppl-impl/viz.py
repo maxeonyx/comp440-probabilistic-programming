@@ -78,7 +78,9 @@ def plot_hist2d(ax, data, weights):
     data = np.array(data)
     ax.set_xlabel("x1")
     ax.set_ylabel("x2")
-    ax.hist2d(data[:, 0], data[:, 1], bins=50, range=[[-5,5],[-5,5]], weights=weights)
+    r = [[-5,5],[-5,5]]
+    # r = None
+    ax.hist2d(data[:, 0], data[:, 1], bins=50, range=r, weights=weights)
     # print(histogram)
     # histogram = crop_to_greater_than_one(histogram)
     # print(histogram.shape)
