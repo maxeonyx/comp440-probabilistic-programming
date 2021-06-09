@@ -10,7 +10,9 @@ use crate::{
 
 use super::{flatten_to_numeric_vec_only, InferenceAlg};
 
-type Trace = HashMap<(usize, usize), (Value, f64)>;
+// refers to a unique instantiation of a `sample` or `observe` expression.
+type VariableAddress = (usize, usize);
+type Trace = HashMap<VariableAddress, (Value, f64)>;
 
 pub struct SingleSiteMetropolis {
     skip: usize,
@@ -21,7 +23,7 @@ pub struct SingleSiteMetropolis {
     proposal: RunMemory,
 
     reached_proposal_site: bool,
-    proposal_site: (usize, usize),
+    proposal_site: VariableAddress,
     var_counter: usize,
 
     // all_program traces

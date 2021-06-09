@@ -1,4 +1,8 @@
-use crate::{DataFile, IntOrFloat, ProgramResult, distributions::Distribution, types::{RuntimeError, Value}};
+use crate::{
+    distributions::Distribution,
+    types::{RuntimeError, Value},
+    DataFile, IntOrFloat, ProgramResult,
+};
 
 use super::{flatten_to_numeric_vec_only, InferenceAlg};
 
@@ -19,11 +23,20 @@ impl LikelihoodWeighting {
 }
 
 impl InferenceAlg for LikelihoodWeighting {
-    fn sample(&mut self, dist: &dyn Distribution, _sample_number: Option<usize>) -> Result<Value, RuntimeError> {
+    fn sample(
+        &mut self,
+        dist: &dyn Distribution,
+        _sample_number: Option<usize>,
+    ) -> Result<Value, RuntimeError> {
         dist.sample()
     }
 
-    fn observe(&mut self, dist: &dyn Distribution, val: Value, _observe_number: Option<usize>) -> Result<Value, RuntimeError> {
+    fn observe(
+        &mut self,
+        dist: &dyn Distribution,
+        val: Value,
+        _observe_number: Option<usize>,
+    ) -> Result<Value, RuntimeError> {
         self.log_w += dist.log_pdf(&val)?;
 
         Ok(val)

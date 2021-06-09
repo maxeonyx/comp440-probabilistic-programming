@@ -87,15 +87,16 @@ def plot_hist2d(ax, data, weights):
     # ax.imshow(histogram)
     # ax.hist2d(data[:, 0], data[:, 1], weights=weights, bins=100)
 
-def better_bincount(data, n):
+def better_bincount(data, n, weights):
     m = data.shape[1]   
     A1 = data + (n*np.arange(m))
-    return np.bincount(A1.ravel(),minlength=n*m).reshape(m,-1).T
+    return np.bincount(A1.ravel(), weights, minlength=n*m).reshape(m,-1).T
 
-def plot_hmm(ax: plt.Axes, data):
+def plot_hmm(ax: plt.Axes, data, weights):
     data = np.array(data)
+    print(data.shape)
     n = data.max() + 1
-    counts = better_bincount(data, n)
+    counts = better_bincount(data, n, weights)
     dist = counts / data.shape[0]
     ax.set_xlabel("iteration")
     ax.set_ylabel("state")
@@ -107,7 +108,7 @@ def plot(ax, data, weights):
     elif type(data[0]) is list and len(data[0]) == 2 and type(data[0][0]) is float:
         plot_hist2d(ax, data, weights)
     elif type(data[0]) is list and type(data[0][0]) is int:
-        plot_hmm(ax, data)
+        plot_hmm(ax, data, weights)
     else:
         print("Data output type not supported yet.")
 
