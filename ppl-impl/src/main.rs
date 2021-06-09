@@ -15,6 +15,7 @@ use std::{ffi::OsStr, path::PathBuf};
 
 use ast::Program;
 use clap::{AppSettings, Clap};
+use inference::likelihood_weighting::LikelihoodWeighting;
 use lalrpop_util::lalrpop_mod;
 
 use types::{RuntimeError, Value};
@@ -66,7 +67,7 @@ enum Command {
 
 use serde::Serialize;
 
-use crate::inference::{InferenceAlg, PriorOnly};
+use crate::inference::{InferenceAlg, prior_only::PriorOnly};
 
 #[derive(Debug, Serialize)]
 pub struct DataFile {
@@ -116,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             n_samples,
         } => {
             let alg = match alg {
-                Alg::LikelihoodWeighting => inference::LikelihoodWeighting::new(),
+                Alg::LikelihoodWeighting => LikelihoodWeighting::new(),
             };
 
             infer(program, file, n_samples, alg)

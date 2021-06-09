@@ -39,8 +39,8 @@ pub struct Loop {
 pub enum Expression {
     Variable(Ident),
     Let(Let),
-    Sample(Box<Expression>),
-    Observe(Box<Expression>, Box<Expression>),
+    Sample(Box<Expression>, Option<usize>),
+    Observe(Box<Expression>, Box<Expression>, Option<usize>),
     If(Box<Expression>, Box<Expression>, Box<Expression>),
     FunctionApplication(Ident, Vec<Expression>),
     Boolean(bool),

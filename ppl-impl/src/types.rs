@@ -4,11 +4,7 @@ use std::{
     rc::Rc,
 };
 
-pub trait Distribution: std::fmt::Debug {
-    fn sample(&self) -> Result<Value, RuntimeError>;
-    fn pdf(&self, val: Value) -> Result<f64, RuntimeError>;
-    fn name(&self) -> &'static str;
-}
+use crate::distributions::Distribution;
 
 #[derive(PartialEq, Debug)]
 pub enum ValueType {
@@ -62,6 +58,13 @@ impl Value {
         }
     }
 
+    pub fn try_get_integer(&self, message: &str) -> Result<i64, RuntimeError> {
+        match self {
+            Value::Integer(x) => Ok(*x),
+            _ => err!("{}", message.to_owned()),
+        }
+    }
+
     pub fn try_into_float(self, message: &str) -> Result<f64, RuntimeError> {
         match self {
             Value::Float(x) => Ok(x),
@@ -73,6 +76,14 @@ impl Value {
         match self {
             Value::Float(x) => Ok(x),
             Value::Integer(x) => Ok(x as f64),
+            _ => err!("{}", message.to_owned()),
+        }
+    }
+
+    pub fn try_get_numeric(&self, message: &str) -> Result<f64, RuntimeError> {
+        match self {
+            Value::Float(x) => Ok(*x),
+            Value::Integer(x) => Ok(*x as f64),
             _ => err!("{}", message.to_owned()),
         }
     }

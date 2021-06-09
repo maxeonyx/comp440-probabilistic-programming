@@ -55,8 +55,8 @@ Expression: ast::Expression = {
     "(" "if" <e1:Expression> <e2:Expression> <e3:Expression> ")" => ast::Expression::If(Box::new(e1), Box::new(e2), Box::new(e3)),
 
 
-    "(" "observe" <e1:Expression> <e2:Expression> ")" => ast::Expression::Observe(Box::new(e1), Box::new(e2)),
-    "(" "sample" <e1:Expression> ")" => ast::Expression::Sample(Box::new(e1)),
+    "(" "observe" <e1:Expression> <e2:Expression> ")" => ast::Expression::Observe(Box::new(e1), Box::new(e2), None),
+    "(" "sample" <e1:Expression> ")" => ast::Expression::Sample(Box::new(e1), None),
 
     // Mathematical operators, comparisons, distributions, etc, are all implemented as built-in functions.
     FunctionApplication,

@@ -1,4 +1,11 @@
-use crate::types::{Distribution, RuntimeError, Value};
+use crate::types::{RuntimeError, Value};
+
+
+pub trait Distribution: std::fmt::Debug {
+    fn sample(&self) -> Result<Value, RuntimeError>;
+    fn log_pdf(&self, val: &Value) -> Result<f64, RuntimeError>;
+    fn name(&self) -> &'static str;
+}
 
 pub struct Normal {
     pub mu: f64,
@@ -17,17 +24,17 @@ impl Distribution for Normal {
         Ok(Value::Float(rng.sample::<f64, _>(distr)))
     }
 
-    fn pdf(&self, val: Value) -> Result<f64, RuntimeError> {
-        use probability::distribution::{Continuous, Gaussian};
-        let d = Gaussian::new(self.mu, self.sigma);
+    fn log_pdf(&self, val: &Value) -> Result<f64, RuntimeError> {
 
         let val = match val {
-            Value::Float(f) => f,
-            Value::Integer(i) => i as f64,
+            Value::Float(f) => *f,
+            Value::Integer(i) => *i as f64,
             _ => return err!("Normal distribution can only eval density of a float."),
         };
 
-        Ok(d.density(val))
+        let log_density = -(self.sigma * std::f64::consts::TAU.sqrt()).ln() + -(1f64 / 2f64) * ((val - self.mu).powi(2) / self.sigma);
+
+        Ok(log_density)
     }
 
     fn name(&self) -> &'static str {
@@ -58,16 +65,16 @@ impl Distribution for Discrete {
         Ok(Value::Integer(val as i64))
     }
 
-    fn pdf(&self, val: Value) -> Result<f64, RuntimeError> {
+    fn log_pdf(&self, val: &Value) -> Result<f64, RuntimeError> {
         use probability::distribution::{Categorical, Discrete};
         let d = Categorical::new(&self.weights);
 
         let val = match val {
-            Value::Integer(v) if v >= 0 => v as usize,
+            Value::Integer(v) if *v >= 0 => *v as usize,
             _ => return err!("Discrete distribution can only eval density of a positive integer."),
         };
 
-        Ok(d.mass(val))
+        Ok(d.mass(val).ln())
     }
 
     fn name(&self) -> &'static str {
@@ -99,14 +106,14 @@ impl Distribution for Gamma {
         Ok(Value::Float(val))
     }
 
-    fn pdf(&self, val: Value) -> Result<f64, RuntimeError> {
+    fn log_pdf(&self, val: &Value) -> Result<f64, RuntimeError> {
         use probability::distribution::{Continuous, Gamma};
         let d = Gamma::new(self.alpha, self.beta);
 
-        let val = val.try_into_numeric(
+        let val = val.clone().try_into_numeric(
             "`gamma` can only evaluate the density of a floating point number.",
         )?;
-        Ok(d.density(val))
+        Ok(d.density(val).ln())
     }
 
     fn name(&self) -> &'static str {
@@ -139,7 +146,7 @@ impl Distribution for Dirichlet {
         ))
     }
 
-    fn pdf(&self, vals: Value) -> Result<f64, RuntimeError> {
+    fn log_pdf(&self, vals: &Value) -> Result<f64, RuntimeError> {
         unimplemented!("Evaluating the density of `dirichlet` is not implemented.")
     }
 

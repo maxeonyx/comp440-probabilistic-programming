@@ -1,10 +1,11 @@
 use crate::{
-    ast::{self, Expression, Ident, Let, Program},
+    ast::{self, Expression, ForEach, Ident, Let, Program},
     inference::InferenceAlg,
     types::{RuntimeError, Value},
 };
 
-use std::{collections::HashMap, convert::TryFrom, rc::Rc};
+use core::num;
+use std::{collections::HashMap, convert::TryFrom, rc::Rc, slice::SliceIndex};
 
 pub struct Binding {
     pub ident: String,
@@ -14,6 +15,101 @@ pub struct Binding {
 pub struct Function {
     pub parameters: Vec<Ident>,
     pub body: Expression,
+}
+
+fn traverse_expr<F: FnMut(&mut Expression)>(expr: &mut Expression, f: &mut F) {
+    f(expr);
+    match expr {
+        // Expression::Variable(_) => todo!(),
+        Expression::Let(Let { bindings, body }) => {
+            for (_, e) in bindings {
+                traverse_expr(e, f);
+            }
+            for e in body {
+                traverse_expr(e, f);
+            }
+        }
+        Expression::Sample(expr, number) => {
+            traverse_expr(expr, f);
+        }
+        Expression::Observe(e1, e2, number) => {
+            traverse_expr(e1, f);
+            traverse_expr(e2, f);
+        }
+        Expression::If(e1, e2, e3) => {
+            traverse_expr(e1, f);
+            traverse_expr(e2, f);
+            traverse_expr(e3, f);
+        }
+        Expression::FunctionApplication(_, parameters) => {
+            for e in parameters {
+                traverse_expr(e, f);
+            }
+        }
+        Expression::Vector(elements) => {
+            for e in elements {
+                traverse_expr(e, f);
+            }
+        }
+        Expression::ForEach(ForEach {
+            n_iters: _,
+            bindings,
+            body,
+        }) => {
+            for (_, e) in bindings {
+                traverse_expr(e, f);
+            }
+            for e in body {
+                traverse_expr(e, f);
+            }
+        }
+        Expression::Loop(ast::Loop {
+            n_iters: _,
+            accumulator,
+            fn_name: _,
+            params,
+        }) => {
+            traverse_expr(accumulator, f);
+            for e in params {
+                traverse_expr(e, f);
+            }
+        }
+        Expression::Null
+        | Expression::Variable(_)
+        | Expression::Boolean(_)
+        | Expression::Integer(_)
+        | Expression::Float(_) => {}
+    }
+}
+
+fn assign_variable_numbers(program: &mut Program) {
+
+    let counter = &mut 0;
+
+    let mut assign_number_to_random_variable_expressions= |expr: &mut Expression| match expr {
+        Expression::Observe(_, _, number) => {
+
+            *number = Some(*counter);
+            *counter += 1;
+        }
+        Expression::Sample(_, number) => {
+            *number = Some(*counter);
+            *counter += 1;
+        }
+        _ => {}
+    };
+
+    traverse_expr(&mut program.expression, &mut assign_number_to_random_variable_expressions);
+
+    for ast::Definition {
+        ident: _,
+        params: _,
+        body,
+    } in program.definitions.iter_mut()
+    {
+
+        traverse_expr(body, &mut assign_number_to_random_variable_expressions);
+    }
 }
 
 pub(crate) struct Interpreter<'alg, T>
@@ -46,13 +142,20 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
         None
     }
 
-    pub fn eval_program(&mut self, program: Program, n_samples: usize) -> Result<(), RuntimeError> {
-        for defn in program.definitions {
-            let ast::Definition {
-                ident,
-                params,
-                body,
-            } = defn;
+    pub fn eval_program(
+        &mut self,
+        mut program: Program,
+        n_samples: usize,
+    ) -> Result<(), RuntimeError> {
+
+        assign_variable_numbers(&mut program);
+
+        for ast::Definition {
+            ident,
+            params,
+            body,
+        } in program.definitions
+        {
             let Ident(name) = ident;
             let function = Function {
                 parameters: params,
@@ -112,10 +215,13 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             }
             Expression::Integer(val) => Ok(Value::Integer(*val)),
             Expression::Float(val) => Ok(Value::Float(*val)),
-            Expression::Sample(expr) => {
+            Expression::Sample(expr, number) => {
+
                 let val = self.eval(expr)?;
                 match val {
-                    Value::Distribution(d) => d.sample(),
+                    Value::Distribution(d) => {
+                        self.inference_alg.sample(d.as_ref(),number.map(|n| n))
+                    },
                     _ => Err(RuntimeError::new(
                         "Sample must only be called on a Distribution value.".to_owned(),
                     )),
@@ -128,7 +234,7 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             // Expression::Division(left, right) => {}
             // Expression::Subtraction(left, right) => {}
             // Expression::Negation(expr) => {}
-            Expression::Observe(dist, val) => {
+            Expression::Observe(dist, val, number) => {
                 let dist = self.eval(dist)?;
                 let dist = match dist {
                     Value::Distribution(d) => d,
@@ -140,7 +246,7 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
                 };
                 let val = self.eval(val)?;
 
-                let val = self.inference_alg.observe(dist.as_ref(), val)?;
+                let val = self.inference_alg.observe(dist.as_ref(), val, number.map(|n| n))?;
 
                 // observe does nothing for now
                 Ok(val)

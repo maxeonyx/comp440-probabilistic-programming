@@ -813,7 +813,7 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
     }
 
     fn normal(&mut self, vals: Vec<Value>) -> EvalResult {
-        let (sigma, mu) =
+        let (mu, sigma) =
             vals.try_into_two_numeric("`normal` expects exactly two numeric arguments.")?;
         let distribution = Value::Distribution(Rc::new(Normal { mu, sigma }));
         Ok(distribution)
