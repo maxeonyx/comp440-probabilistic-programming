@@ -1,4 +1,8 @@
-use crate::{DataFile, distributions::Distribution, types::{RuntimeError, Value}};
+use crate::{
+    distributions::Distribution,
+    types::{RuntimeError, Value},
+    DataFile,
+};
 
 use super::{flatten_to_numeric_vec_only, InferenceAlg};
 
@@ -15,11 +19,20 @@ impl PriorOnly {
 }
 
 impl InferenceAlg for PriorOnly {
-    fn sample(&mut self, dist: &dyn Distribution, _sample_number: Option<usize>) -> Result<Value, RuntimeError> {
+    fn sample(
+        &mut self,
+        dist: &dyn Distribution,
+        _sample_number: Option<usize>,
+    ) -> Result<Value, RuntimeError> {
         dist.sample()
     }
 
-    fn observe(&mut self, dist: &dyn Distribution, _val: Value, _observe_number: Option<usize>) -> Result<Value, RuntimeError> {
+    fn observe(
+        &mut self,
+        dist: &dyn Distribution,
+        _val: Value,
+        _observe_number: Option<usize>,
+    ) -> Result<Value, RuntimeError> {
         dist.sample()
     }
 

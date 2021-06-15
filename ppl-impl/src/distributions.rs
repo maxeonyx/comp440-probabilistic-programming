@@ -1,6 +1,5 @@
 use crate::types::{RuntimeError, Value};
 
-
 pub trait Distribution: std::fmt::Debug {
     fn sample(&self) -> Result<Value, RuntimeError>;
     fn log_pdf(&self, val: &Value) -> Result<f64, RuntimeError>;
@@ -25,14 +24,14 @@ impl Distribution for Normal {
     }
 
     fn log_pdf(&self, val: &Value) -> Result<f64, RuntimeError> {
-
         let val = match val {
             Value::Float(f) => *f,
             Value::Integer(i) => *i as f64,
             _ => return err!("Normal distribution can only eval density of a float."),
         };
 
-        let log_density = -(self.sigma * std::f64::consts::TAU.sqrt()).ln() + -(1f64 / 2f64) * ((val - self.mu).powi(2) / self.sigma);
+        let log_density = -(self.sigma * std::f64::consts::TAU.sqrt()).ln()
+            + -(1f64 / 2f64) * ((val - self.mu).powi(2) / self.sigma);
 
         Ok(log_density)
     }

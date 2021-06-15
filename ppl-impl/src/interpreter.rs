@@ -83,12 +83,10 @@ fn traverse_expr<F: FnMut(&mut Expression)>(expr: &mut Expression, f: &mut F) {
 }
 
 fn assign_variable_numbers(program: &mut Program) {
-
     let counter = &mut 0;
 
-    let mut assign_number_to_random_variable_expressions= |expr: &mut Expression| match expr {
+    let mut assign_number_to_random_variable_expressions = |expr: &mut Expression| match expr {
         Expression::Observe(_, _, number) => {
-
             *number = Some(*counter);
             *counter += 1;
         }
@@ -99,7 +97,10 @@ fn assign_variable_numbers(program: &mut Program) {
         _ => {}
     };
 
-    traverse_expr(&mut program.expression, &mut assign_number_to_random_variable_expressions);
+    traverse_expr(
+        &mut program.expression,
+        &mut assign_number_to_random_variable_expressions,
+    );
 
     for ast::Definition {
         ident: _,
@@ -107,7 +108,6 @@ fn assign_variable_numbers(program: &mut Program) {
         body,
     } in program.definitions.iter_mut()
     {
-
         traverse_expr(body, &mut assign_number_to_random_variable_expressions);
     }
 }
@@ -147,7 +147,6 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
         mut program: Program,
         n_samples: usize,
     ) -> Result<(), RuntimeError> {
-
         assign_variable_numbers(&mut program);
 
         for ast::Definition {
@@ -216,12 +215,11 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             Expression::Integer(val) => Ok(Value::Integer(*val)),
             Expression::Float(val) => Ok(Value::Float(*val)),
             Expression::Sample(expr, number) => {
-
                 let val = self.eval(expr)?;
                 match val {
                     Value::Distribution(d) => {
-                        self.inference_alg.sample(d.as_ref(),number.map(|n| n))
-                    },
+                        self.inference_alg.sample(d.as_ref(), number.map(|n| n))
+                    }
                     _ => Err(RuntimeError::new(
                         "Sample must only be called on a Distribution value.".to_owned(),
                     )),
@@ -246,7 +244,9 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
                 };
                 let val = self.eval(val)?;
 
-                let val = self.inference_alg.observe(dist.as_ref(), val, number.map(|n| n))?;
+                let val = self
+                    .inference_alg
+                    .observe(dist.as_ref(), val, number.map(|n| n))?;
 
                 // observe does nothing for now
                 Ok(val)
