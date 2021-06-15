@@ -32,6 +32,7 @@ pub enum Value {
     Null,
 }
 
+#[allow(dead_code)]
 impl Value {
     pub fn get_type(&self) -> ValueType {
         match self {
@@ -126,7 +127,7 @@ impl ValueImpls for Vec<Value> {
         if self.len() != 1 {
             return err!("{}", message.to_owned());
         }
-        Ok(self.pop().unwrap().try_into_numeric(message)?)
+        self.pop().unwrap().try_into_numeric(message)
     }
 
     fn try_into_two(mut self, message: &str) -> Result<(Value, Value), RuntimeError> {
@@ -160,12 +161,6 @@ impl RuntimeError {
         Self {
             message,
             source: None,
-        }
-    }
-    fn wrap<T: Error + 'static>(e: T) -> Self {
-        Self {
-            message: String::new(),
-            source: Some(Box::new(e)),
         }
     }
 }

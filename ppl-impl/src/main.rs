@@ -11,7 +11,7 @@ mod ast;
 mod functions;
 mod types;
 
-use std::{ffi::OsStr, path::PathBuf};
+use std::{ffi::OsStr, path::{Path, PathBuf}};
 
 use ast::Program;
 use clap::{AppSettings, Clap};
@@ -114,24 +114,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let program = parser.parse(&text)?;
     println!("{:#?}", program);
 
-    Ok(match opts.cmd {
-        Command::EvalOnce { file } => eval_once(program, file),
-        Command::PriorOnly { n_samples, file } => infer(program, file, n_samples, PriorOnly::new()),
+    match opts.cmd {
+        Command::EvalOnce { file } => eval_once(program, &file),
+        Command::PriorOnly { n_samples, file } => infer(program, &file, n_samples, PriorOnly::new()),
         Command::Infer {
             alg,
             file,
             n_samples,
         } => match alg {
-            Alg::LikelihoodWeighting => infer(program, file, n_samples, LikelihoodWeighting::new()),
+            Alg::LikelihoodWeighting => infer(program, &file, n_samples, LikelihoodWeighting::new()),
             Alg::SingleSiteMetropolis { skip } => {
-                infer(program, file, n_samples, SingleSiteMetropolis::new(skip))
+                infer(program, &file, n_samples, SingleSiteMetropolis::new(skip))
             }
         },
         Command::AncestralSample { .. } => unimplemented!("Inference not implemented yet."),
-    }?)
+    }
 }
 
-fn file_name(opts: &Opts) -> &PathBuf {
+fn file_name(opts: &Opts) -> &Path {
     match &opts.cmd {
         Command::EvalOnce { file, .. } => file,
         Command::PriorOnly { file, .. } => file,
@@ -140,13 +140,13 @@ fn file_name(opts: &Opts) -> &PathBuf {
     }
 }
 
-fn file_stem(file_name: &PathBuf) -> Option<&OsStr> {
+fn file_stem(file_name: &Path) -> Option<&OsStr> {
     file_name.file_stem()
 }
 
 fn infer<T: InferenceAlg>(
     program: Program,
-    file: PathBuf,
+    file: &Path,
     n_samples: usize,
     mut alg: T,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -180,7 +180,7 @@ fn infer<T: InferenceAlg>(
     Ok(())
 }
 
-fn eval_once(program: Program, _file: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+fn eval_once(program: Program, _file: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let mut alg = PriorOnly::new();
     let mut interpreter = Interpreter::new(&mut alg);
 

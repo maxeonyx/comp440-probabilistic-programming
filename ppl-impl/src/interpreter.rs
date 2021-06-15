@@ -4,8 +4,8 @@ use crate::{
     types::{RuntimeError, Value},
 };
 
-use core::num;
-use std::{collections::HashMap, convert::TryFrom, rc::Rc, slice::SliceIndex};
+
+use std::{collections::HashMap, convert::TryFrom, rc::Rc};
 
 pub struct Binding {
     pub ident: String,
@@ -29,10 +29,10 @@ fn traverse_expr<F: FnMut(&mut Expression)>(expr: &mut Expression, f: &mut F) {
                 traverse_expr(e, f);
             }
         }
-        Expression::Sample(expr, number) => {
+        Expression::Sample(expr, _number) => {
             traverse_expr(expr, f);
         }
-        Expression::Observe(e1, e2, number) => {
+        Expression::Observe(e1, e2, _number) => {
             traverse_expr(e1, f);
             traverse_expr(e2, f);
         }
@@ -165,12 +165,11 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
 
         let expression = program.expression;
         (0..n_samples)
-            .map(|_i| {
+            .try_for_each(|_i| {
                 let val = self.eval(&expression)?;
                 self.inference_alg.finish_one_evaluation(val);
                 Ok(())
             })
-            .collect::<Result<(), RuntimeError>>()
     }
 
     pub fn eval(&mut self, expr: &Expression) -> Result<Value, RuntimeError> {

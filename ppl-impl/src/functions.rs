@@ -41,9 +41,9 @@ fn assert_all_numeric_type(fn_name: &str, vals: &[Value]) -> Result<ValueType, R
 }
 
 impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
-    pub fn dispatch_function<'a>(
+    pub fn dispatch_function(
         &mut self,
-        name: &'a str,
+        name: &str,
         vals: Vec<Value>,
     ) -> Result<Value, RuntimeError> {
         // built-insd

@@ -141,11 +141,11 @@ impl Distribution for Dirichlet {
         let mut rng = rand::thread_rng();
         let vals = rng.sample(distr);
         Ok(Value::Vector(
-            vals.into_iter().map(|x| Value::Float(x)).collect(),
+            vals.into_iter().map(Value::Float).collect(),
         ))
     }
 
-    fn log_pdf(&self, vals: &Value) -> Result<f64, RuntimeError> {
+    fn log_pdf(&self, _vals: &Value) -> Result<f64, RuntimeError> {
         unimplemented!("Evaluating the density of `dirichlet` is not implemented.")
     }
 
