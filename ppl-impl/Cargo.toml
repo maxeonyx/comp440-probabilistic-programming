@@ -1,5 +1,5 @@
 [package]
-name = "ppl-impl"
+name = "thisppl"
 version = "0.1.0"
 authors = ["Maxwell Clarke <maxeonyx@gmail.com>"]
 edition = "2018"
