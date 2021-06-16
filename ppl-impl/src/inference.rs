@@ -1,15 +1,16 @@
 use crate::{
     distributions::Distribution,
     types::{RuntimeError, Value},
-    DataFile, IntOrFloat, ProgramResult,
+    DataFile, ResultValue, ProgramResult,
 };
 
 fn flatten_to_numeric_vec_only(vals: Vec<Value>) -> Result<Vec<ProgramResult>, RuntimeError> {
     vals.into_iter()
         .map(|v| match v {
-            Value::Integer(i) => Ok(ProgramResult::One(IntOrFloat::Int(i))),
-            Value::Float(f) => Ok(ProgramResult::One(IntOrFloat::Float(f))),
-            Value::Vector(v) => Ok(ProgramResult::Many(flatten_to_numeric_vec_only(v)?)),
+            Value::Integer(x) => Ok(ProgramResult::One(ResultValue::Int(x))),
+            Value::Boolean(x) => Ok(ProgramResult::One(ResultValue::Boolean(x))),
+            Value::Float(x) => Ok(ProgramResult::One(ResultValue::Float(x))),
+            Value::Vector(x) => Ok(ProgramResult::Many(flatten_to_numeric_vec_only(x)?)),
             _ => err!("Program should only return numbers or vecs of numbers."),
         })
         .collect::<Result<Vec<ProgramResult>, RuntimeError>>()

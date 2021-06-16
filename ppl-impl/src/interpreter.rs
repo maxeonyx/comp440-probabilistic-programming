@@ -315,10 +315,21 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
 
                 Ok(accumulator)
             }
-            // Expression::If(comp, true_branch, false_branch) => {}
+            Expression::If(comp, true_branch, false_branch) => {
+
+                let comp = self.eval(comp)?;
+                
+                let comp_val = comp.try_into_bool("`if` comparison expression must eval to a boolean.")?;
+
+                if comp_val {
+                    self.eval(true_branch)
+                } else {
+                    self.eval(false_branch)
+                }
+            }
             Expression::Vector(elements) => Ok(Value::Vector(self.eval_all(elements)?)),
             // Expression::HashMap(pairs) => {}
-            // Expression::Boolean(val) => {}
+            Expression::Boolean(val) => Ok(Value::Boolean(*val)),
             x => Err(RuntimeError::new(format!("Unimplemented: {:?}", x))),
         }
     }

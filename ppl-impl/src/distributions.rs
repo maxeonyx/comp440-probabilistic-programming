@@ -87,6 +87,43 @@ impl std::fmt::Debug for Discrete {
     }
 }
 
+pub struct Bernoulli {
+    pub param: f64,
+}
+
+impl Distribution for Bernoulli {
+    fn sample(&self) -> Result<Value, RuntimeError> {
+        use rand::prelude::*;
+        use rand_distr::Bernoulli;
+        let distr = match Bernoulli::new(self.param) {
+            Ok(w) => w,
+            Err(_) => return err!("Error creating `bernoulli` distribution."),
+        };
+        let mut rng = rand::thread_rng();
+        let val = rng.sample::<bool, _>(distr);
+        Ok(Value::Boolean(val))
+    }
+
+    fn log_pdf(&self, val: &Value) -> Result<f64, RuntimeError> {
+        use probability::distribution::{Bernoulli, Discrete};
+        let d = Bernoulli::new(self.param);
+
+        let val = val.try_get_bool("Bernoulli distribution can only eval density of a positive integer.")?;
+
+        Ok(d.mass(val as u8).ln())
+    }
+
+    fn name(&self) -> &'static str {
+        "Bernoulli"
+    }
+}
+
+impl std::fmt::Debug for Bernoulli {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(...)", self.name())
+    }
+}
+
 pub struct Gamma {
     pub alpha: f64,
     pub beta: f64,

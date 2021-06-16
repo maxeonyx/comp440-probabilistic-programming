@@ -1,7 +1,7 @@
 use crate::{
     distributions::Distribution,
     types::{RuntimeError, Value},
-    DataFile, IntOrFloat, ProgramResult,
+    DataFile, ResultValue, ProgramResult,
 };
 
 use super::{flatten_to_numeric_vec_only, InferenceAlg};
@@ -56,7 +56,7 @@ impl InferenceAlg for LikelihoodWeighting {
                 .into_iter()
                 .zip(self.weights.iter())
                 .map(|(val, weight)| {
-                    ProgramResult::Many(vec![val, ProgramResult::One(IntOrFloat::Float(*weight))])
+                    ProgramResult::Many(vec![val, ProgramResult::One(ResultValue::Float(*weight))])
                 })
                 .collect(),
         })

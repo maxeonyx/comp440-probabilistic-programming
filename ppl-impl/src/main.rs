@@ -84,13 +84,14 @@ pub struct DataFile {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum ProgramResult {
-    One(IntOrFloat),
+    One(ResultValue),
     Many(Vec<ProgramResult>),
 }
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
-pub enum IntOrFloat {
+pub enum ResultValue {
+    Boolean(bool),
     Int(i64),
     Float(f64),
 }

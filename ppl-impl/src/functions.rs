@@ -1,12 +1,6 @@
 use std::{convert::TryFrom, rc::Rc, usize};
 
-use crate::{
-    distributions::{Dirichlet, Discrete, Gamma, Normal},
-    inference::InferenceAlg,
-    interpreter::{Binding, Interpreter},
-    types::{RuntimeError, Value, ValueImpls, ValueType},
-    EvalResult,
-};
+use crate::{EvalResult, distributions::{Bernoulli, Dirichlet, Discrete, Gamma, Normal}, inference::InferenceAlg, interpreter::{Binding, Interpreter}, types::{RuntimeError, Value, ValueImpls, ValueType}};
 
 enum ComparisonType {
     Less,
@@ -60,6 +54,9 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             ">=" => return self.comparison(ComparisonType::GreaterEqual, vals),
             ">" => return self.comparison(ComparisonType::Greater, vals),
 
+            "and" => return self.and(vals),
+            "or" => return self.or(vals),
+
             "vector" => return self.vector(vals),
             "get" => return self.get(vals),
             "first" => return self.first(vals),
@@ -79,7 +76,8 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             "exp" => return self.exp(vals),
             "sqrt" => return self.sqrt(vals),
 
-            // "bernoulli" => return self.bernoulli(vals),
+            "bernoulli" => return self.flip(vals),
+            "flip" => return self.flip(vals),
             "discrete" => return self.discrete(vals),
 
             "normal" => return self.normal(vals),
@@ -776,6 +774,24 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
         Ok(val)
     }
 
+    fn and(&mut self, vals: Vec<Value>) -> EvalResult {
+        let (a, b) = vals.try_into_two("`and` expects exactly two arguments.")?;
+
+        let a = a.try_into_bool("`and` first arg was not boolean.")?;
+        let b = b.try_into_bool("`and` second arg was not boolean.")?;
+
+        Ok(Value::Boolean(a && b))
+    }
+
+    fn or(&mut self, vals: Vec<Value>) -> EvalResult {
+        let (a, b) = vals.try_into_two("`or` expects exactly two arguments.")?;
+
+        let a = a.try_into_bool("`or` first arg was not boolean.")?;
+        let b = b.try_into_bool("`or` second arg was not boolean.")?;
+
+        Ok(Value::Boolean(a || b))
+    }
+
     fn comparison(&mut self, comparison_type: ComparisonType, vals: Vec<Value>) -> EvalResult {
         fn compare<T: PartialOrd + PartialEq>(comparison_type: ComparisonType, a: T, b: T) -> bool {
             match comparison_type {
@@ -793,6 +809,9 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
         }
 
         match (&vals[0], &vals[1]) {
+            (Value::Boolean(a), Value::Boolean(b)) => {
+                Ok(Value::Boolean(compare(comparison_type, *a, *b)))
+            }
             (Value::Integer(a), Value::Integer(b)) => {
                 Ok(Value::Boolean(compare(comparison_type, *a, *b)))
             }
@@ -826,6 +845,13 @@ impl<'alg, T: InferenceAlg> Interpreter<'alg, T> {
             .try_into_vector(message)?
             .try_into_numeric(message)?;
         let distribution = Value::Distribution(Rc::new(Discrete { weights }));
+        Ok(distribution)
+    }
+
+    fn flip(&mut self, weights: Vec<Value>) -> EvalResult {
+        let param = weights
+            .try_into_one_numeric("`flip` expects a single numeric argument.")?;
+        let distribution = Value::Distribution(Rc::new(Bernoulli { param }));
         Ok(distribution)
     }
 

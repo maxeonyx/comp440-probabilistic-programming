@@ -69,9 +69,20 @@ def render_charts():
 def plot_hist(ax, data, weights):
     data = np.array(data)
     ax.set_xlabel("Value")
-    ax.set_ylabel("Count")
+    ax.set_ylabel("Mass")
 
-    ax.hist(data, weights=weights, bins=45)
+    ax.hist(data, density=True, weights=weights, bins=45)
+
+
+def plot_bool_hist(ax, data, weights):
+    data = np.array(data)
+    ax.set_xlabel("Value")
+    ax.set_ylabel("Mass")
+
+    ax.set_xticks([0.5, 1.5])
+    ax.set_xticklabels(["false", "true"])
+
+    ax.hist(data, density=True, weights=weights, bins=2)
 
 def plot_hist2d(ax, data, weights):
     print("hi")
@@ -87,23 +98,36 @@ def plot_hist2d(ax, data, weights):
     # ax.imshow(histogram)
     # ax.hist2d(data[:, 0], data[:, 1], weights=weights, bins=100)
 
-def better_bincount(data, n, weights):
-    m = data.shape[1]   
-    A1 = data + (n*np.arange(m))
-    return np.bincount(A1.ravel(), weights, minlength=n*m).reshape(m,-1).T
+def bincount_hist(data, n, weights):
+    counts = np.zeros([n, data.shape[1]])
+    weights = weights/np.sum(weights)
+    for sample in range(data.shape[0]):
+        weight = weights[sample]
+        for i in range(data.shape[1]):
+            state = data[sample, i]
+            counts[state, i] += weight
+    return counts
 
 def plot_hmm(ax: plt.Axes, data, weights):
     data = np.array(data)
     print(data.shape)
     n = data.max() + 1
-    counts = better_bincount(data, n, weights)
-    dist = counts / data.shape[0]
+    hist = bincount_hist(data, n, weights)
+    print(hist)
+    
     ax.set_xlabel("iteration")
     ax.set_ylabel("state")
-    ax.imshow(dist, vmin=0, vmax=1)
+    ax.set_yticks([0, 1, 2])
+    ax.set_yticklabels(["0", "1", "2"])
+    ax.imshow(hist, vmin=0, vmax=1)
+
 
 def plot(ax, data, weights):
-    if type(data[0]) in (int, float):
+    if type(data[0]) in [bool]:
+        data = np.array(data)
+        data = data.astype(np.uint8)
+        plot_bool_hist(ax, data, weights)
+    elif type(data[0]) in (int, float):
         plot_hist(ax, data, weights)
     elif type(data[0]) is list and len(data[0]) == 2 and type(data[0][0]) is float:
         plot_hist2d(ax, data, weights)

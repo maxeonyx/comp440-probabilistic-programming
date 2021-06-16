@@ -59,6 +59,20 @@ impl Value {
         }
     }
 
+    pub fn try_into_bool(self, message: &str) -> Result<bool, RuntimeError> {
+        match self {
+            Value::Boolean(x) => Ok(x),
+            _ => err!("{}", message.to_owned()),
+        }
+    }
+
+    pub fn try_get_bool(&self, message: &str) -> Result<bool, RuntimeError> {
+        match self {
+            Value::Boolean(x) => Ok(*x),
+            _ => err!("{}", message.to_owned()),
+        }
+    }
+
     pub fn try_get_integer(&self, message: &str) -> Result<i64, RuntimeError> {
         match self {
             Value::Integer(x) => Ok(*x),
