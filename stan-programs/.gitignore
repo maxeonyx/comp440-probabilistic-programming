@@ -1,0 +1,3 @@
+cmdstan-*
+*.hpp
+*.gch
