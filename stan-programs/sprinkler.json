@@ -1,4 +1,4 @@
 {
-    "sprinkler_on": true,
-    "wet_grass": true
+    "sprinkler_on": 1,
+    "grass_wet": 1
 }

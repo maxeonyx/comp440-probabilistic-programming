@@ -1,10 +1,10 @@
 data {
    int<lower=0, upper=1> sprinkler_on;
    int<lower=0, upper=1> grass_wet;
-   int<lower=0, upper=1> cloudy;
-   int<lower=0, upper=1> raining;
 }
 parameters {
+   int<lower=0, upper=1> cloudy;
+   int<lower=0, upper=1> raining;
 }
 model {
     // It's cloudy half the time.

@@ -1,0 +1,36 @@
+(defn observe-data [x y sigma slope bias]
+    (let [
+            z (+ (* slope x) bias)
+            likelihood (normal z sigma)
+        ]
+        (observe likelihood y)))
+
+
+(let [
+        slope (sample (normal 0.0 10.0))
+        bias  (sample (normal 0.0 10.0))
+        xdata [
+            1.0
+            2.0
+            3.0
+            4.0
+            5.0
+            6.0
+        ]
+        ydata [
+            2.1
+            3.9
+            5.3
+            7.7
+            10.2
+            12.9
+        ]
+        sigma 1.0
+    ]
+   (observe-data (get xdata 0) (get ydata 0) sigma slope bias)
+   (observe-data (get xdata 1) (get ydata 1) sigma slope bias)
+   (observe-data (get xdata 2) (get ydata 2) sigma slope bias)
+   (observe-data (get xdata 3) (get ydata 3) sigma slope bias)
+   (observe-data (get xdata 4) (get ydata 4) sigma slope bias)
+   (observe-data (get xdata 5) (get ydata 5) sigma slope bias)
+   [slope bias])

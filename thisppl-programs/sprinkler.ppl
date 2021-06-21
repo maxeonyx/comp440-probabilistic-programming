@@ -1,0 +1,16 @@
+(let [
+    cloudy (sample (flip 0.5))
+    raining (sample (if cloudy
+                        (flip 0.8)
+                        (flip 0.2)))
+    sprinkler_on (sample (if cloudy
+                        (flip 0.1)
+                        (flip 0.5)))
+    grass_wet (sample (if (and sprinkler_on raining)
+                        (flip 0.99)
+                        (if (or sprinkler_on raining)
+                            (flip 0.9)
+                            (flip 0.01))))    
+    ]
+    (observe grass_wet true)
+    [cloudy raining sprinkler_on grass_wet])
