@@ -8,10 +8,10 @@ torch_false = torch.zeros(())
 def weather():
     # It's cloudy half the time.
     cloudy = pyro.sample('cloudy', pyro.distributions.Bernoulli(0.5))
-
+    
     if cloudy:
         # If it's cloudy it's usually raining.
-        raining = pyro.sample('raining', pyro.distributions.Bernoulli(0.8))
+        raining = pyro.sample('raining', pyro.distributions.Normal(0.8, 0.1))
     else:
         # Sometimes it rains when it's not cloudy.
         raining = pyro.sample('raining', pyro.distributions.Bernoulli(0.2))
@@ -36,15 +36,15 @@ def weather():
     
     return torch.tensor([cloudy, raining, sprinkler_on, grass_wet])
 
-def conditioned_weather():
-    pyro.condition(weather, data={"grass_wet": torch_true})
+# def conditioned_weather():
+#     pyro.condition(weather, data={"grass_wet": torch_true})
 
-nuts_kernel = pyro.infer.NUTS(conditioned_weather)
+nuts_kernel = pyro.infer.NUTS(weather)
 
 mcmc = pyro.infer.MCMC(nuts_kernel,
-    num_samples=10000,
+    num_samples=10,
 )
-mcmc.run(weather)
+mcmc.run()
 samples = mcmc.get_samples()
 
 print(samples)
